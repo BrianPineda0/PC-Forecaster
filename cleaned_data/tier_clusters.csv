@@ -1,0 +1,13 @@
+category,tier,cluster_size,spec_summary,agreement_with_hand_coded
+GPU,budget,150,"memory_gb=[0-8], tdp_watts=[19-185]",0.7723
+GPU,mid,275,"memory_gb=[3-20], tdp_watts=[70-320]",0.7723
+GPU,high,124,"memory_gb=[10-24], tdp_watts=[250-450]",0.7723
+CPU,budget,262,"core_count=[1-12], tdp_watts=[35-105]",0.6477
+CPU,mid,70,"core_count=[4-14], tdp_watts=[105-220]",0.6477
+CPU,high,37,"core_count=[14-24], tdp_watts=[65-180]",0.6477
+RAM,budget,407,total_gb=[1-32],0.1298
+RAM,mid,157,total_gb=[48-128],0.1298
+RAM,high,6,total_gb=[192-256],0.1298
+Storage,budget,459,capacity_gb=[40-3000],0.2359
+Storage,mid,123,capacity_gb=[3840-10000],0.2359
+Storage,high,37,capacity_gb=[12000-24000],0.2359

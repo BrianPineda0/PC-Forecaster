@@ -1,0 +1,5 @@
+model,MAE,RMSE,MAPE_pct,R2
+Naive (expected_price),88.01,190.86,21.18,0.817
+Linear Regression,93.61,190.05,24.98,0.8185
+Decision Tree,89.08,193.52,21.86,0.8119
+Random Forest,88.85,193.85,21.41,0.8112

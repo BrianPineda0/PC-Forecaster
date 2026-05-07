@@ -1,0 +1,9 @@
+feature,perm_importance_mean,perm_importance_std
+expected_price,242.312264,0.329321
+cat_RAM,0.381327,0.017871
+sin_month,0.071055,0.007138
+cos_month,0.057997,0.00309
+trend_per_step,1e-05,0.0
+event_active,0.0,0.0
+cat_CPU,-0.05208,0.007986
+spec_value,-0.314517,0.0088

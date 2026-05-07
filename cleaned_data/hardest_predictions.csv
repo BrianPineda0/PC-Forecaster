@@ -1,0 +1,11 @@
+component_id,model,category,mean_actual,mean_pred,mean_abs_error
+intel dc s3700 | 200GB | SSD,intel dc s3700,Storage,1502.42,434.15,1086.38
+pny founders edition | GeForce GTX 1080 Ti,pny founders edition,GPU,1227.8,399.44,897.16
+adata xpg caster rgb 32 gb | DDR5 | 6400MHz | 2x16GB,adata xpg caster rgb 32 gb,RAM,1198.3,510.75,716.44
+evga xc ultra gaming | GeForce GTX 1660 Ti,evga xc ultra gaming,GPU,1140.18,579.77,622.85
+msi armor oc | GeForce GTX 1660 Ti,msi armor oc,GPU,1222.36,687.0,610.14
+asus rog strix lc gaming oc | GeForce RTX 3080 Ti,asus rog strix lc gaming oc,GPU,1337.86,1891.92,554.07
+asus strix gaming | GeForce GTX 1080 Ti,asus strix gaming,GPU,1255.38,810.29,553.48
+gigabyte aorus master | GeForce RTX 3080 Ti,gigabyte aorus master,GPU,1134.81,1683.08,548.26
+msi founders edition | GeForce GTX 1080 Ti,msi founders edition,GPU,1164.54,737.65,534.48
+zotac amp extreme holo | GeForce RTX 3080 Ti,zotac amp extreme holo,GPU,1490.18,2023.44,533.74

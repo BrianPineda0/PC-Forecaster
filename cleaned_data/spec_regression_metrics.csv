@@ -1,0 +1,13 @@
+category,model,n_train_2023,n_test_2025,MAE,RMSE,MAPE_pct,R2
+GPU,Linear Regression,869,546,247.65,386.09,34.04,0.6114
+GPU,Decision Tree,869,546,213.97,328.16,24.69,0.7192
+GPU,Random Forest,869,546,210.19,322.9,24.33,0.7282
+CPU,Linear Regression,435,487,116.31,173.44,74.83,0.3292
+CPU,Decision Tree,435,487,93.48,158.08,56.63,0.4428
+CPU,Random Forest,435,487,91.22,148.58,55.23,0.5077
+RAM,Linear Regression,683,2034,44.76,74.04,47.59,0.6608
+RAM,Decision Tree,683,2034,41.13,74.92,34.25,0.6527
+RAM,Random Forest,683,2034,39.99,70.86,34.76,0.6893
+Storage,Linear Regression,773,1800,86.61,134.61,85.18,0.2466
+Storage,Decision Tree,773,1800,73.07,117.4,60.23,0.4269
+Storage,Random Forest,773,1800,73.54,117.54,59.94,0.4255

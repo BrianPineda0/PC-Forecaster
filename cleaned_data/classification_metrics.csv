@@ -1,0 +1,13 @@
+category,model,accuracy,macro_f1,macro_precision,macro_recall,f1_cheap,f1_mid,f1_expensive
+GPU,Logistic Regression,0.7627,0.763,0.7638,0.7623,0.8205,0.6582,0.8101
+GPU,Decision Tree,0.8107,0.8082,0.8145,0.8101,0.8974,0.7163,0.8108
+GPU,Random Forest,0.8333,0.8314,0.8315,0.8328,0.9046,0.75,0.8395
+CPU,Logistic Regression,0.6364,0.6117,0.6443,0.6364,0.7053,0.4211,0.7089
+CPU,Decision Tree,0.6883,0.6599,0.6825,0.6883,0.7614,0.4348,0.7836
+CPU,Random Forest,0.7186,0.7021,0.7219,0.7186,0.7701,0.541,0.7952
+RAM,Logistic Regression,0.7647,0.766,0.7697,0.7646,0.8069,0.6724,0.8186
+RAM,Decision Tree,0.7735,0.7684,0.7806,0.7733,0.8359,0.6635,0.8058
+RAM,Random Forest,0.7809,0.7777,0.7874,0.7807,0.8415,0.682,0.8096
+Storage,Logistic Regression,0.6242,0.6016,0.6486,0.6238,0.7069,0.4277,0.6702
+Storage,Decision Tree,0.6506,0.6348,0.6779,0.6502,0.708,0.4706,0.7258
+Storage,Random Forest,0.6693,0.6734,0.6894,0.6693,0.6619,0.6224,0.7358

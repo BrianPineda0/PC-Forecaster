@@ -1,0 +1,17 @@
+model,category,n_test,MAE,RMSE,MAPE_pct,R2
+Naive (expected_price),CPU,1845,7.52,12.23,3.39,0.9962
+Naive (expected_price),GPU,4549,127.54,253.89,16.01,0.8584
+Naive (expected_price),RAM,6115,107.73,210.63,29.01,0.1981
+Naive (expected_price),Storage,8179,69.44,151.93,22.21,0.5551
+Linear Regression,CPU,1845,10.29,15.89,5.22,0.9935
+Linear Regression,GPU,4549,158.52,269.06,21.63,0.841
+Linear Regression,RAM,6115,106.27,198.73,36.87,0.2862
+Linear Regression,Storage,8179,66.85,146.67,22.4,0.5854
+Decision Tree,CPU,1845,9.29,15.07,4.29,0.9942
+Decision Tree,GPU,4549,127.77,263.21,16.0,0.8478
+Decision Tree,RAM,6115,107.76,208.14,29.83,0.217
+Decision Tree,Storage,8179,71.6,154.11,23.14,0.5422
+Random Forest,CPU,1845,9.03,14.59,3.93,0.9945
+Random Forest,GPU,4549,128.57,263.13,15.91,0.8479
+Random Forest,RAM,6115,107.9,210.2,29.18,0.2014
+Random Forest,Storage,8179,70.52,153.17,22.6,0.5478

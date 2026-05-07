@@ -1,0 +1,4 @@
+model,MAE,RMSE,MAPE_pct,R2,n_test
+Linear Regression,125.96,209.82,45.41,0.5056,1689
+Decision Tree,88.59,140.47,30.44,0.7784,1689
+Random Forest,61.82,106.61,21.9,0.8723,1689
