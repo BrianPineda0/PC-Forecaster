@@ -15,16 +15,25 @@
       <span class="cat-hint">type to search</span>
     </div>
     <div class="results-dropdown">
-      <input type="text" placeholder="{{ {'GPU':'rtx 4070, rx 7800 xt…', 'CPU':'ryzen 7 7700x, i7-14700k…', 'RAM':'ddr5 6000 32gb…', 'Storage':'nvme 1tb, sata 2tb…'}[cat] }}" data-search autocomplete="off">
+      <input type="text" placeholder="{{ {'GPU':'rtx 4070, rx 7800 xt…', 'CPU':'ryzen 7 7700x, i7-14700k…', 'RAM':'ddr5 6000 32gb…', 'Storage':'nvme 1tb, sata 2tb…'}[cat] }}" data-search autocomplete="off"
+             {% if prefill.get(cat) %}data-preset-cid="{{ prefill[cat].component_id }}" data-preset-model="{{ prefill[cat].model }}"{% endif %}>
       <div class="results-list" data-list></div>
     </div>
-    <div class="picked empty" data-picked>none selected</div>
+    <div class="picked {% if not prefill.get(cat) %}empty{% endif %}" data-picked>
+      {% if prefill.get(cat) %}
+        <div class="pmodel">{{ prefill[cat].model }}</div>
+        <div class="pcid">{{ prefill[cat].component_id }}</div>
+      {% else %}
+        none selected
+      {% endif %}
+    </div>
   </div>
   {% endfor %}
 </div>
 
 <div class="build-actions">
   <button id="computeBtn" class="btn">Project build cost</button>
+  <button id="shareBtn" class="btn ghost">Copy share link</button>
   <button id="clearBtn" class="btn ghost">Clear all</button>
 </div>
 
@@ -75,6 +84,10 @@ document.querySelectorAll('.picker').forEach(panel => {
   const list = panel.querySelector('[data-list]');
   const pickedEl = panel.querySelector('[data-picked]');
 
+  if (input.dataset.presetCid) {
+    picked[cat] = input.dataset.presetCid;
+  }
+
   const search = debounce(async () => {
     const q = input.value.trim();
     if (!q) { list.classList.remove('show'); list.innerHTML = ''; return; }
@@ -109,11 +122,25 @@ document.querySelectorAll('.picker').forEach(panel => {
 document.getElementById('clearBtn').addEventListener('click', () => {
   Object.keys(picked).forEach(k => picked[k] = null);
   document.querySelectorAll('[data-picked]').forEach(p => { p.textContent = 'none selected'; p.classList.add('empty'); });
+  document.querySelectorAll('.picker [data-search]').forEach(i => { i.value = ''; delete i.dataset.presetCid; });
   document.getElementById('result').style.display = 'none';
   document.getElementById('emptyHint').style.display = 'block';
+  history.replaceState(null, '', window.location.pathname);
 });
 
-document.getElementById('computeBtn').addEventListener('click', async () => {
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const params = Object.entries(picked).filter(([_, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
+  if (!params.length) { alert('Pick at least one component first.'); return; }
+  const url = window.location.origin + window.location.pathname + '?' + params.join('&');
+  navigator.clipboard.writeText(url).then(() => {
+    const b = document.getElementById('shareBtn');
+    const t = b.textContent;
+    b.textContent = 'Copied!';
+    setTimeout(() => { b.textContent = t; }, 1500);
+  });
+});
+
+async function computeBuild() {
   const selected = Object.fromEntries(Object.entries(picked).filter(([_, v]) => v));
   if (!Object.keys(selected).length) {
     alert('Pick at least one component first.');
@@ -131,7 +158,13 @@ document.getElementById('computeBtn').addEventListener('click', async () => {
   }
   const data = await res.json();
   renderResult(data);
-});
+}
+
+document.getElementById('computeBtn').addEventListener('click', computeBuild);
+
+if (Object.values(picked).some(v => v)) {
+  computeBuild();
+}
 
 function renderResult(data) {
   document.getElementById('emptyHint').style.display = 'none';

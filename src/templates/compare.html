@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% set active = 'compare' %}
+{% block title %}Compare &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">Compare components</p>
+<h1 class="page-title">Two paths to the <em>same</em> build.</h1>
+<p class="page-lede">Pick up to four components from the same category &mdash; or across &mdash; to see their forecasts side by side. Useful for <span class="serif"><em>4070 vs 4070 Super</em></span>-style decisions.</p>
+
+<div class="compare-pickers">
+  {% for i in range(4) %}
+  <div class="cmp-picker" data-slot="{{ i }}">
+    <div class="cmp-slot-label">Slot {{ i + 1 }}</div>
+    <div class="results-dropdown">
+      <input type="text" placeholder="type to search any category" data-search autocomplete="off"
+             {% if cids[i] is defined %}data-preset-cid="{{ cids[i] }}"{% endif %}>
+      <div class="results-list" data-list></div>
+    </div>
+    <div class="picked empty" data-picked>none selected</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="build-actions">
+  <button id="goBtn" class="btn">Compare forecasts</button>
+  <button id="clearBtn" class="btn ghost">Clear</button>
+  <button id="shareBtn" class="btn ghost">Copy share link</button>
+</div>
+
+{% if summary %}
+<h2 class="section-head">Summary</h2>
+<table class="editorial">
+  <thead><tr>
+    <th>Component</th>
+    <th class="num">Now</th>
+    <th>Cheapest forecast</th>
+    <th class="num">Savings</th>
+    <th class="num">%</th>
+  </tr></thead>
+  <tbody>
+  {% for r in summary %}
+    <tr>
+      <td class="lead">
+        <span class="tag {{ r.category|lower }}">{{ r.category }}</span>
+        &nbsp;<a href="{{ url_for('component_detail', component_id=r.component_id) }}">{{ r.model }}</a>
+      </td>
+      <td class="num">${{ "%.2f"|format(r.current) }}</td>
+      <td>{{ r.cheapest_date }} &middot; <span class="mono">${{ "%.2f"|format(r.cheapest) }}</span></td>
+      <td class="num">${{ "%.2f"|format(r.savings) }}</td>
+      <td class="num">{{ "%.1f"|format(r.pct_savings) }}%</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2 class="section-head">Forecast Overlay</h2>
+<div class="chart-wrap tall"><canvas id="cmpChart"></canvas></div>
+<p class="chart-caption">Solid: synthetic + real-blended history. Dashed: 12-month forecast.</p>
+
+{% elif not cids %}
+<div class="empty-state">Pick at least one component above, then click <em>Compare forecasts</em>.</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const initial = {{ series|tojson }};
+const palette = ['#9c3324', '#2e3e5b', '#5a7549', '#a87a1f'];
+let picked = [];
+let chart = null;
+
+function debounce(fn, ms) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+function setSlot(idx, cid, model) {
+  picked[idx] = { cid, model };
+  const panel = document.querySelector(`.cmp-picker[data-slot="${idx}"]`);
+  const pickedEl = panel.querySelector('[data-picked]');
+  pickedEl.classList.remove('empty');
+  pickedEl.innerHTML = `<div class="pmodel">${model || '(no model name)'}</div><div class="pcid">${cid}</div>`;
+}
+
+function clearSlot(idx) {
+  picked[idx] = null;
+  const panel = document.querySelector(`.cmp-picker[data-slot="${idx}"]`);
+  const pickedEl = panel.querySelector('[data-picked]');
+  pickedEl.textContent = 'none selected';
+  pickedEl.classList.add('empty');
+  panel.querySelector('[data-search]').value = '';
+}
+
+document.querySelectorAll('.cmp-picker').forEach((panel, idx) => {
+  picked[idx] = null;
+  const input = panel.querySelector('[data-search]');
+  const list = panel.querySelector('[data-list]');
+
+  const presetCid = input.dataset.presetCid;
+  if (presetCid) {
+    const match = initial.find(s => s.component_id === presetCid);
+    setSlot(idx, presetCid, match ? match.model : presetCid);
+  }
+
+  const search = debounce(async () => {
+    const q = input.value.trim();
+    if (!q) { list.classList.remove('show'); list.innerHTML = ''; return; }
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&forecast=1`);
+    const data = await res.json();
+    if (!data.length) { list.innerHTML = '<div class="opt"><div class="muted">no matches</div></div>'; list.classList.add('show'); return; }
+    list.innerHTML = data.map(d =>
+      `<div class="opt" data-cid="${d.component_id.replace(/"/g, '&quot;')}" data-model="${(d.model||'').replace(/"/g, '&quot;')}">
+        <div class="opt-model">${d.model || ''} <span class="muted" style="font-size:10px">${d.category||''}</span></div>
+        <div class="opt-cid">${d.component_id}</div>
+       </div>`
+    ).join('');
+    list.classList.add('show');
+    list.querySelectorAll('.opt[data-cid]').forEach(opt => {
+      opt.addEventListener('click', () => {
+        setSlot(idx, opt.dataset.cid, opt.dataset.model);
+        input.value = '';
+        list.classList.remove('show');
+      });
+    });
+  }, 150);
+
+  input.addEventListener('input', search);
+  input.addEventListener('focus', () => { if (input.value.trim()) search(); });
+  document.addEventListener('click', e => { if (!panel.contains(e.target)) list.classList.remove('show'); });
+});
+
+document.getElementById('goBtn').addEventListener('click', () => {
+  const cids = picked.filter(p => p).map(p => p.cid);
+  if (!cids.length) { alert('Pick at least one component.'); return; }
+  const qs = cids.map(c => 'c=' + encodeURIComponent(c)).join('&');
+  window.location = '/compare?' + qs;
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  window.location = '/compare';
+});
+
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const cids = picked.filter(p => p).map(p => p.cid);
+  if (!cids.length) { alert('Nothing to share yet.'); return; }
+  const qs = cids.map(c => 'c=' + encodeURIComponent(c)).join('&');
+  const url = window.location.origin + '/compare?' + qs;
+  navigator.clipboard.writeText(url).then(() => {
+    const b = document.getElementById('shareBtn');
+    const t = b.textContent;
+    b.textContent = 'Copied!';
+    setTimeout(() => { b.textContent = t; }, 1500);
+  });
+});
+
+if (initial.length) {
+  const datasets = [];
+  initial.forEach((s, i) => {
+    const color = palette[i % palette.length];
+    if (s.history.length) {
+      datasets.push({
+        label: s.model + ' (history)',
+        data: s.history.map(p => ({ x: p.date, y: p.price })),
+        borderColor: color, backgroundColor: 'transparent',
+        tension: 0.18, pointRadius: 0, borderWidth: 1.6,
+      });
+    }
+    if (s.forecast.length) {
+      datasets.push({
+        label: s.model + ' (forecast)',
+        data: s.forecast.map(p => ({ x: p.date, y: p.price })),
+        borderColor: color, backgroundColor: 'transparent',
+        borderDash: [4, 4], tension: 0.2, pointRadius: 0, borderWidth: 1.6,
+      });
+    }
+  });
+
+  chart = new Chart(document.getElementById('cmpChart'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#1c1916', font: { family: 'system-ui', size: 11 }, usePointStyle: true, boxWidth: 12, padding: 14 }, position: 'bottom' },
+        tooltip: { backgroundColor: '#1c1916', titleFont: { family: 'system-ui' }, bodyFont: { family: 'ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
+      },
+      scales: {
+        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, ticks: { color: '#847b6c', font: { family: 'system-ui', size: 11 }, maxRotation: 0 }, grid: { color: '#c9c0a8', drawTicks: false } },
+        y: { ticks: { color: '#847b6c', font: { family: 'ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: '#c9c0a8', drawTicks: false } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

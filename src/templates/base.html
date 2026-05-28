@@ -17,7 +17,9 @@
     <p class="section-label">Sections</p>
     <nav>
       <a href="{{ url_for('summary') }}" class="{% if active == 'summary' %}active{% endif %}">Summary</a>
+      <a href="{{ url_for('deals') }}" class="{% if active == 'deals' %}active{% endif %}">This Month</a>
       <a href="{{ url_for('components') }}" class="{% if active == 'components' %}active{% endif %}">Components</a>
+      <a href="{{ url_for('compare') }}" class="{% if active == 'compare' %}active{% endif %}">Compare</a>
       <a href="{{ url_for('build') }}" class="{% if active == 'build' %}active{% endif %}">Build Planner</a>
       <a href="{{ url_for('metrics') }}" class="{% if active == 'metrics' %}active{% endif %}">Metrics</a>
       <a href="{{ url_for('visuals') }}" class="{% if active == 'visuals' %}active{% endif %}">Visuals</a>

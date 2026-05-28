@@ -27,6 +27,11 @@ app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "t
             static_folder=os.path.join(os.path.dirname(__file__), "static"))
 
 
+@app.context_processor
+def inject_globals():
+    return {"deployed": os.environ.get("DEPLOYED") == "1"}
+
+
 # creates the user_observations and prediction_adjustments tables on first run
 # same schema the cli used so existing calibration state carries over
 
@@ -595,9 +600,13 @@ def observations():
 
 
 # POST handler for option 6 - reset
+# disabled when DEPLOYED=1 so randos on a public url cant wipe everyones calibration
 
 @app.route("/observations/reset", methods=["POST"])
 def reset_observations():
+
+    if os.environ.get("DEPLOYED") == "1":
+        abort(403)
 
     conn = sqlite3.connect(db_path)
     conn.execute("DELETE FROM user_observations")
@@ -750,12 +759,231 @@ def visual_file(filename):
     return send_from_directory(visuals_dir, filename)
 
 
+# this month - best buys + biggest projected drops, ranked across all forecasted components
+
+@app.route("/deals")
+def deals():
+
+    cat_filter = request.args.get("cat", "").strip() or None
+
+    if not os.path.exists(forecast_path):
+        return render_template("deals.html", buys=[], waits=[], cat=cat_filter, n_total=0)
+
+    fc = pd.read_csv(forecast_path)
+    fc["forecast_month"] = pd.to_datetime(fc["forecast_month"])
+
+    conn = sqlite3.connect(db_path)
+
+    comp = pd.read_sql_query(
+        "SELECT component_id, brand, model FROM components",
+        conn,
+    )
+
+    hist = pd.read_sql_query(
+        "SELECT component_id, MIN(synthetic_price) AS hist_min FROM synthetic_prices GROUP BY component_id",
+        conn,
+    )
+
+    adj = pd.read_sql_query(
+        "SELECT component_id, multiplier FROM prediction_adjustments",
+        conn,
+    )
+
+    conn.close()
+
+    fc = fc.merge(comp, on="component_id", how="left")
+    fc = fc.merge(adj, on="component_id", how="left")
+    fc["multiplier"] = fc["multiplier"].fillna(1.0)
+    fc["predicted_price"] = fc["predicted_price"] * fc["multiplier"]
+
+    this_month = pd.Timestamp.today().normalize().to_period("M")
+    fc = fc[fc["forecast_month"].dt.to_period("M") >= this_month]
+
+    if fc.empty:
+        return render_template("deals.html", buys=[], waits=[], cat=cat_filter, n_total=0)
+
+    rows = []
+
+    for cid, sub in fc.groupby("component_id"):
+
+        sub = sub.sort_values("forecast_month").reset_index(drop=True)
+        current = float(sub.iloc[0]["predicted_price"])
+
+        if current <= 0:
+            continue
+
+        idx_min = int(sub["predicted_price"].idxmin())
+        cheapest = float(sub.iloc[idx_min]["predicted_price"])
+        cheapest_date = sub.iloc[idx_min]["forecast_month"]
+        months_to_cheapest = (cheapest_date.to_period("M") - sub.iloc[0]["forecast_month"].to_period("M")).n
+        savings = current - cheapest
+        pct = (savings / current * 100) if current > 0 else 0.0
+
+        rows.append({
+            "component_id": cid,
+            "category": sub.iloc[0]["category"],
+            "brand": sub.iloc[0]["brand"],
+            "model": sub.iloc[0]["model"],
+            "current": current,
+            "cheapest": cheapest,
+            "cheapest_date": cheapest_date,
+            "months_to_cheapest": months_to_cheapest,
+            "savings": savings,
+            "pct_savings": pct,
+        })
+
+    df = pd.DataFrame(rows)
+
+    df = df.merge(hist, on="component_id", how="left")
+    df = df.merge(adj.rename(columns={"multiplier": "_m"}), on="component_id", how="left")
+    df["_m"] = df["_m"].fillna(1.0)
+    df["hist_min"] = df["hist_min"] * df["_m"]
+    df = df.drop(columns="_m")
+
+    df["pct_above_hist"] = ((df["current"] - df["hist_min"]) / df["hist_min"] * 100).where(df["hist_min"] > 0)
+
+    if cat_filter:
+        df = df[df["category"] == cat_filter]
+
+    n_total = len(df)
+
+    if n_total == 0:
+        return render_template("deals.html", buys=[], waits=[], cat=cat_filter, n_total=0)
+
+    buy_pool = df[df["pct_savings"] < 3.0].copy()
+    buy_pool["buy_score"] = buy_pool["pct_above_hist"].fillna(0) + buy_pool["pct_savings"]
+    buy_pool = buy_pool.sort_values("buy_score").head(12)
+
+    wait_pool = df[df["pct_savings"] >= 5.0].copy()
+    wait_pool = wait_pool.sort_values("pct_savings", ascending=False).head(12)
+
+    def serialize(d):
+
+        return [{
+            "component_id": r["component_id"],
+            "category": r["category"],
+            "brand": r["brand"] if pd.notna(r["brand"]) else "",
+            "model": r["model"] if pd.notna(r["model"]) else r["component_id"],
+            "current": float(r["current"]),
+            "cheapest": float(r["cheapest"]),
+            "cheapest_date": r["cheapest_date"].strftime("%b %Y"),
+            "months_to_cheapest": int(r["months_to_cheapest"]),
+            "savings": float(r["savings"]),
+            "pct_savings": float(r["pct_savings"]),
+            "hist_min": float(r["hist_min"]) if pd.notna(r["hist_min"]) else None,
+            "pct_above_hist": float(r["pct_above_hist"]) if pd.notna(r["pct_above_hist"]) else None,
+        } for _, r in d.iterrows()]
+
+    return render_template("deals.html",
+                           buys=serialize(buy_pool),
+                           waits=serialize(wait_pool),
+                           cat=cat_filter,
+                           n_total=n_total)
+
+
+# side-by-side forecast overlay for 2-4 components
+
+@app.route("/compare")
+def compare():
+
+    cids = [c for c in request.args.getlist("c") if c.strip()][:4]
+    series = []
+    summary = []
+
+    if cids:
+
+        today = pd.Timestamp.today().normalize()
+        this_month = today.to_period("M")
+
+        for cid in cids:
+
+            row = get_component_row(cid)
+
+            if row is None:
+                continue
+
+            syn = get_synth(cid)
+            fc = get_forecast(cid)
+            mult, _ = get_adjustment(cid)
+
+            hist_points = []
+            fc_points = []
+
+            if not syn.empty:
+                adj_syn = syn.copy()
+                adj_syn["synthetic_price"] = adj_syn["synthetic_price"] * mult
+                hist_points = [{"date": d.strftime("%Y-%m-%d"), "price": float(p)}
+                               for d, p in zip(adj_syn["date"], adj_syn["synthetic_price"])]
+
+            if not fc.empty:
+                fc_adj = fc.copy()
+                fc_adj["price"] = fc_adj["price"] * mult
+                fc_points = [{"date": d.strftime("%Y-%m-%d"), "price": float(p)}
+                             for d, p in zip(fc_adj["date"], fc_adj["price"])]
+
+            series.append({
+                "component_id": cid,
+                "category": row.get("category"),
+                "brand": row.get("brand"),
+                "model": row.get("model"),
+                "history": hist_points,
+                "forecast": fc_points,
+            })
+
+            if not fc.empty:
+
+                fc_future = fc.copy()
+                fc_future["price"] = fc_future["price"] * mult
+                fc_future = fc_future[fc_future["date"].dt.to_period("M") >= this_month]
+
+                if fc_future.empty:
+                    fc_future = fc.tail(1).copy()
+                    fc_future["price"] = fc_future["price"] * mult
+
+                current = float(fc_future.iloc[0]["price"])
+                idx_min = int(fc_future["price"].idxmin())
+                cheapest = float(fc_future.loc[idx_min, "price"])
+                cheapest_date = fc_future.loc[idx_min, "date"]
+                savings = current - cheapest
+                pct = (savings / current * 100) if current > 0 else 0.0
+
+                summary.append({
+                    "component_id": cid,
+                    "category": row.get("category"),
+                    "model": row.get("model"),
+                    "brand": row.get("brand"),
+                    "current": current,
+                    "cheapest": cheapest,
+                    "cheapest_date": cheapest_date.strftime("%b %Y"),
+                    "savings": savings,
+                    "pct_savings": pct,
+                })
+
+    return render_template("compare.html", cids=cids, series=series, summary=summary)
+
+
 # build planner - cli option 11
 
 @app.route("/build")
 def build():
 
-    return render_template("build.html")
+    prefill = {}
+
+    for cat in ["GPU", "CPU", "RAM", "Storage"]:
+
+        cid = (request.args.get(cat) or "").strip()
+
+        if not cid:
+            continue
+
+        row = get_component_row(cid)
+
+        if row is None:
+            continue
+
+        prefill[cat] = {"component_id": cid, "model": row.get("model") or "(no model name)"}
+
+    return render_template("build.html", prefill=prefill)
 
 
 @app.route("/api/build", methods=["POST"])
@@ -837,8 +1065,12 @@ def api_build():
 
 
 def main():
+
     ensure_user_tables()
-    app.run(debug=True, port=5000)
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "5000"))
+    local = host in ("127.0.0.1", "localhost")
+    app.run(host=host, port=port, debug=local)
 
 
 if __name__ == "__main__":

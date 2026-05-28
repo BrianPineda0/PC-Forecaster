@@ -57,7 +57,7 @@
 <p class="body-note">No active calibrations.</p>
 {% endif %}
 
-{% if observations or calibrations %}
+{% if (observations or calibrations) and not deployed %}
 <h2 class="section-head">Reset</h2>
 <p class="body-note">Wipes every observation and calibration multiplier. Cannot be undone.</p>
 <form method="post" action="{{ url_for('reset_observations') }}" onsubmit="return confirm('Delete every observation and calibration multiplier? This cannot be undone.');">

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% set active = 'deals' %}
+{% block title %}This Month &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">This month</p>
+<h1 class="page-title">What&rsquo;s worth <em>buying</em> right now.</h1>
+<p class="page-lede">A live read of every forecasted component &mdash; sorted by where the model says the current month is a good entry, and where waiting a few months pays off.</p>
+
+<div class="deals-tabs">
+  <a href="{{ url_for('deals') }}" class="{% if not cat %}active{% endif %}">All</a>
+  <a href="{{ url_for('deals', cat='GPU') }}" class="gpu {% if cat == 'GPU' %}active{% endif %}">GPU</a>
+  <a href="{{ url_for('deals', cat='CPU') }}" class="cpu {% if cat == 'CPU' %}active{% endif %}">CPU</a>
+  <a href="{{ url_for('deals', cat='RAM') }}" class="ram {% if cat == 'RAM' %}active{% endif %}">RAM</a>
+  <a href="{{ url_for('deals', cat='Storage') }}" class="storage {% if cat == 'Storage' %}active{% endif %}">Storage</a>
+</div>
+
+{% if n_total == 0 %}
+<div class="empty-state">No forecasted components{% if cat %} in {{ cat }}{% endif %} &mdash; run the pipeline to refresh predictions.</div>
+{% else %}
+
+<h2 class="section-head">Best Buys This Month</h2>
+<p class="body-note">Components where the current month is at or near the projected cheapest, and the price is close to the historical low. The model sees little benefit to waiting.</p>
+
+{% if buys %}
+<div class="deals-grid">
+  {% for r in buys %}
+  <a class="deal-card buy" href="{{ url_for('component_detail', component_id=r.component_id) }}">
+    <div class="deal-head">
+      <span class="cat-slot {{ r.category|lower }}">{{ r.category }}</span>
+      <span class="deal-verdict good">BUY</span>
+    </div>
+    <div class="deal-model">{{ r.model }}</div>
+    <div class="deal-price-row">
+      <div>
+        <div class="deal-sub">Now</div>
+        <div class="deal-price">${{ "%.0f"|format(r.current) }}</div>
+      </div>
+      {% if r.hist_min %}
+      <div>
+        <div class="deal-sub">Historic low</div>
+        <div class="deal-price muted">${{ "%.0f"|format(r.hist_min) }}</div>
+      </div>
+      {% endif %}
+    </div>
+    {% if r.pct_above_hist is not none %}
+    <div class="deal-foot">
+      {% if r.pct_above_hist <= 2 %}
+        At the historical low.
+      {% elif r.pct_above_hist <= 10 %}
+        Within {{ "%.0f"|format(r.pct_above_hist) }}% of the historical low.
+      {% else %}
+        {{ "%.0f"|format(r.pct_above_hist) }}% above historical low, but still the cheapest month coming.
+      {% endif %}
+    </div>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">No strong buy signals{% if cat %} in {{ cat }}{% endif %} this month &mdash; the model expects more savings if you wait.</div>
+{% endif %}
+
+<h2 class="section-head">Biggest Projected Drops</h2>
+<p class="body-note">Components with the largest projected savings if you wait. Sorted by percent savings versus the current month.</p>
+
+{% if waits %}
+<div class="deals-grid">
+  {% for r in waits %}
+  <a class="deal-card wait" href="{{ url_for('component_detail', component_id=r.component_id) }}">
+    <div class="deal-head">
+      <span class="cat-slot {{ r.category|lower }}">{{ r.category }}</span>
+      <span class="deal-verdict warn">WAIT</span>
+    </div>
+    <div class="deal-model">{{ r.model }}</div>
+    <div class="deal-price-row">
+      <div>
+        <div class="deal-sub">Now</div>
+        <div class="deal-price">${{ "%.0f"|format(r.current) }}</div>
+      </div>
+      <div>
+        <div class="deal-sub">{{ r.cheapest_date }}</div>
+        <div class="deal-price accent">${{ "%.0f"|format(r.cheapest) }}</div>
+      </div>
+    </div>
+    <div class="deal-foot">
+      Save <strong>${{ "%.0f"|format(r.savings) }}</strong>
+      &middot; {{ "%.1f"|format(r.pct_savings) }}%
+      {% if r.months_to_cheapest > 0 %}&middot; {{ r.months_to_cheapest }} mo{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">No components{% if cat %} in {{ cat }}{% endif %} have meaningful projected drops &mdash; the market is flat.</div>
+{% endif %}
+
+<p class="body-note" style="margin-top:36px">
+  Scanning {{ "{:,}".format(n_total) }} forecasted component{{ '' if n_total == 1 else 's' }}{% if cat %} in {{ cat }}{% endif %}.
+  Calibration multipliers from <a href="{{ url_for('observations') }}">your observations</a> are applied.
+</p>
+
+{% endif %}
+{% endblock %}
