@@ -26,6 +26,9 @@
 <div class="deals-grid">
   {% for r in buys %}
   <a class="deal-card buy" href="{{ url_for('component_detail', component_id=r.component_id) }}">
+    <button class="save-btn floating" data-save-btn="{{ r.component_id }}" aria-label="Save">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 21s-7-4.35-7-10a4.5 4.5 0 0 1 8.5-2A4.5 4.5 0 0 1 22 11c0 5.65-10 10-10 10z"/></svg>
+    </button>
     <div class="deal-head">
       <span class="cat-slot {{ r.category|lower }}">{{ r.category }}</span>
       <span class="deal-verdict good">BUY</span>
@@ -68,6 +71,9 @@
 <div class="deals-grid">
   {% for r in waits %}
   <a class="deal-card wait" href="{{ url_for('component_detail', component_id=r.component_id) }}">
+    <button class="save-btn floating" data-save-btn="{{ r.component_id }}" aria-label="Save">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 21s-7-4.35-7-10a4.5 4.5 0 0 1 8.5-2A4.5 4.5 0 0 1 22 11c0 5.65-10 10-10 10z"/></svg>
+    </button>
     <div class="deal-head">
       <span class="cat-slot {{ r.category|lower }}">{{ r.category }}</span>
       <span class="deal-verdict warn">WAIT</span>

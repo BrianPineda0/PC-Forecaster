@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% set active = 'saved' %}
+{% block title %}Saved &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">Your shortlist</p>
+<h1 class="page-title">Components you&rsquo;ve <em>saved</em>.</h1>
+<p class="page-lede">Tap the heart on any component or deal card to add it here. Saved locally to your browser &mdash; no account, no sync.</p>
+
+<div id="savedRoot">
+  <div class="empty-state" id="savedEmpty" style="display:none">
+    Nothing saved yet. Find something on <a href="{{ url_for('deals') }}">This Month</a> or <a href="{{ url_for('components') }}">Components</a> and tap the heart.
+  </div>
+  <div class="deals-grid" id="savedGrid"></div>
+  <div class="build-actions" id="savedActions" style="display:none">
+    <button class="btn ghost" id="clearAll">Clear all</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadSaved() {
+  const ids = Saved.list();
+  const root = document.getElementById('savedGrid');
+  const empty = document.getElementById('savedEmpty');
+  const actions = document.getElementById('savedActions');
+
+  if (!ids.length) {
+    root.innerHTML = '';
+    empty.style.display = 'block';
+    actions.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  actions.style.display = 'flex';
+
+  const qs = ids.map(c => 'c=' + encodeURIComponent(c)).join('&');
+  const res = await fetch('/api/components/bulk?' + qs);
+  const data = await res.json();
+
+  if (!data.length) { root.innerHTML = '<div class="empty-state">Saved components no longer exist in the dataset.</div>'; return; }
+
+  root.innerHTML = data.map(r => {
+    const hasPrice = r.current !== null;
+    const verdict = hasPrice && r.pct_savings >= 5 ? 'wait' : 'buy';
+    const verdictText = hasPrice && r.pct_savings >= 5 ? 'WAIT' : 'BUY';
+    const cat = (r.category||'').toLowerCase();
+    return `
+      <a class="deal-card ${verdict}" href="/components/${encodeURIComponent(r.component_id)}">
+        <div class="deal-head">
+          <span class="cat-slot ${cat}">${r.category||''}</span>
+          ${hasPrice ? `<span class="deal-verdict ${verdict==='buy'?'good':'warn'}">${verdictText}</span>` : ''}
+        </div>
+        <div class="deal-model">${r.model}</div>
+        ${hasPrice ? `
+        <div class="deal-price-row">
+          <div><div class="deal-sub">Now</div><div class="deal-price">$${Math.round(r.current)}</div></div>
+          <div><div class="deal-sub">${r.cheapest_date}</div><div class="deal-price ${verdict==='wait'?'accent':'muted'}">$${Math.round(r.cheapest)}</div></div>
+        </div>
+        ${r.pct_savings > 0 ? `<div class="deal-foot">Project save <strong>$${Math.round(r.savings)}</strong> &middot; ${r.pct_savings.toFixed(1)}%</div>` : ''}
+        ` : '<div class="deal-foot">No forecast available for this component.</div>'}
+        <button class="save-btn floating saved" data-save-btn="${r.component_id}" aria-label="Remove from saved">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 21s-7-4.35-7-10a4.5 4.5 0 0 1 8.5-2A4.5 4.5 0 0 1 22 11c0 5.65-10 10-10 10z"/></svg>
+        </button>
+      </a>`;
+  }).join('');
+}
+
+document.getElementById('clearAll').addEventListener('click', () => {
+  if (!confirm('Remove all saved components?')) return;
+  Saved.list().forEach(c => Saved.toggle(c));
+  loadSaved();
+});
+
+document.addEventListener('DOMContentLoaded', loadSaved);
+document.addEventListener('click', e => { if (e.target.closest('[data-save-btn]')) setTimeout(loadSaved, 50); });
+</script>
+{% endblock %}

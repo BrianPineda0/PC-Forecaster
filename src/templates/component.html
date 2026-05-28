@@ -9,8 +9,17 @@
     <span class="{{ component.category|lower }}">{{ component.category }}</span>
     {% if component.brand %}<span class="dot">&middot;</span><strong>{{ component.brand }}</strong>{% endif %}
   </div>
-  <h1 class="cd-title">{{ component.model }}</h1>
+  <div class="cd-title-row">
+    <h1 class="cd-title">{{ component.model }}</h1>
+    <button class="save-btn" data-save-btn="{{ component.component_id }}" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 21s-7-4.35-7-10a4.5 4.5 0 0 1 8.5-2A4.5 4.5 0 0 1 22 11c0 5.65-10 10-10 10z"/></svg>
+      <span data-save-label>Save</span>
+    </button>
+  </div>
   <div class="cd-cid">{{ component.component_id }}</div>
+  {% if confidence %}
+  <div class="confidence-pill {{ confidence.level }}" title="{{ confidence.reason }}">{{ confidence.label }}</div>
+  {% endif %}
 </div>
 
 {% if request.args.get('ok') == '1' %}<div class="flash">Observation recorded &mdash; calibration multiplier updated.</div>{% endif %}
@@ -99,6 +108,22 @@
   </div>
 </div>
 
+{% if value_rank %}
+<h2 class="section-head">Value Rank in {{ component.category }}</h2>
+<p class="body-note">
+  {% if value_rank.target_rank %}
+    This component ranks <strong>#{{ value_rank.target_rank }} of {{ "{:,}".format(value_rank.n_total) }}</strong>
+    by <span class="mono">{{ value_rank.metric_label }}</span>
+    &mdash; category median is <span class="mono">${{ "%.2f"|format(value_rank.category_median) }}</span>,
+    this one is <span class="mono">${{ "%.2f"|format(value_rank.target_value) }}</span>.
+  {% else %}
+    Showing the 10 best-value components in this category by <span class="mono">{{ value_rank.metric_label }}</span>.
+  {% endif %}
+</p>
+<div class="chart-wrap"><canvas id="valueChart"></canvas></div>
+<p class="chart-caption">Lower bars are better value. {% if value_rank.target_rank %}This component is highlighted in mint.{% endif %}</p>
+{% endif %}
+
 {% if similar %}
 <h2 class="section-head">Similar Components</h2>
 <p class="body-note">Nearest neighbors in standardized spec space, same category.</p>
@@ -129,32 +154,70 @@ const histSynth = history.filter(h => h.source === 'synthetic').map(h => ({x: h.
 const histReal  = history.filter(h => h.source === 'real_blended').map(h => ({x: h.date, y: h.price}));
 const fcPoints  = forecast.map(f => ({x: f.date, y: f.price}));
 
-const ink = '#1c1916';
-const muted = '#847b6c';
-const rule = '#c9c0a8';
-const navy = '#2e3e5b';
-const rust = '#9c3324';
-const ochre = '#a87a1f';
+const ink = '#e6ecf5';
+const muted = '#7a8699';
+const grid = 'rgba(40,50,74,0.5)';
+const histColor = '#60a5fa';
+const realColor = '#5eead4';
+const fcColor = '#fbbf24';
 
 new Chart(document.getElementById('priceChart'), {
   type: 'line',
   data: {
     datasets: [
-      { label: 'Synthetic series', data: histSynth, borderColor: navy, backgroundColor: 'transparent', tension: 0.18, pointRadius: 0, borderWidth: 1.8 },
-      { label: 'Real-blended', data: histReal, borderColor: rust, backgroundColor: rust, pointRadius: 3.5, pointBorderWidth: 0, showLine: false },
-      { label: '12-month forecast', data: fcPoints, borderColor: ochre, backgroundColor: 'transparent', borderDash: [4, 4], tension: 0.2, pointRadius: 0, borderWidth: 1.8 },
+      { label: 'Synthetic series', data: histSynth, borderColor: histColor, backgroundColor: 'transparent', tension: 0.18, pointRadius: 0, borderWidth: 2 },
+      { label: 'Real-blended', data: histReal, borderColor: realColor, backgroundColor: realColor, pointRadius: 4, pointBorderWidth: 0, showLine: false },
+      { label: '12-month forecast', data: fcPoints, borderColor: fcColor, backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.2, pointRadius: 0, borderWidth: 2 },
     ]
   },
   options: {
     responsive: true, maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { labels: { color: ink, font: { family: 'system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
-      tooltip: { backgroundColor: ink, titleFont: { family: 'system-ui' }, bodyFont: { family: 'ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
+      legend: { labels: { color: ink, font: { family: 'Inter, system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
+      tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: ink, bodyColor: ink, titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
     },
     scales: {
-      x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } }, ticks: { color: muted, font: { family: 'system-ui', size: 11 }, maxRotation: 0 }, grid: { color: rule, drawTicks: false } },
-      y: { ticks: { color: muted, font: { family: 'ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: rule, drawTicks: false } }
+      x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } }, ticks: { color: muted, font: { family: 'Inter, system-ui', size: 11 }, maxRotation: 0 }, grid: { color: grid, drawTicks: false } },
+      y: { ticks: { color: muted, font: { family: 'JetBrains Mono, ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: grid, drawTicks: false } }
+    }
+  }
+});
+</script>
+{% endif %}
+
+{% if value_rank %}
+<script>
+const valueData = {{ value_rank|tojson }};
+const ink2 = '#e6ecf5';
+const muted2 = '#7a8699';
+const grid2 = 'rgba(40,50,74,0.5)';
+const accent2 = '#5eead4';
+const neutral2 = '#60a5fa';
+
+new Chart(document.getElementById('valueChart'), {
+  type: 'bar',
+  data: {
+    labels: valueData.entries.map(e => e.model),
+    datasets: [{
+      label: valueData.metric_label,
+      data: valueData.entries.map(e => e.value),
+      backgroundColor: valueData.entries.map(e => e.is_target ? accent2 : 'rgba(96,165,250,0.6)'),
+      borderColor: valueData.entries.map(e => e.is_target ? accent2 : neutral2),
+      borderWidth: 1,
+      borderRadius: 3,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: ink2, bodyColor: ink2, callbacks: { label: c => `$${c.parsed.x.toFixed(2)} ${valueData.metric_label}` } }
+    },
+    scales: {
+      x: { ticks: { color: muted2, font: { family: 'JetBrains Mono, ui-monospace', size: 10 }, callback: v => '$' + v }, grid: { color: grid2, drawTicks: false } },
+      y: { ticks: { color: muted2, font: { family: 'JetBrains Mono, ui-monospace', size: 10 } }, grid: { color: grid2, drawTicks: false } }
     }
   }
 });

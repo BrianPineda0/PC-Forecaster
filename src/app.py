@@ -70,9 +70,10 @@ def find_components(query, require_forecast=False, category=None, limit=50):
     sql = """
         SELECT component_id, category, brand, model
         FROM components
-        WHERE LOWER(component_id) LIKE ?
+        WHERE LOWER(component_id) LIKE ? OR LOWER(model) LIKE ? OR LOWER(brand) LIKE ?
     """
-    params = [f"%{query.lower()}%"]
+    needle = f"%{query.lower()}%"
+    params = [needle, needle, needle]
 
     if category:
         sql += " AND category = ?"
@@ -245,12 +246,79 @@ def summary():
         row["category"] = cat
         real_backtest.append(row)
 
+    # featured top picks - reuse the same logic the deals page uses
+    featured = []
+
+    if os.path.exists(forecast_path):
+
+        fc_all = pd.read_csv(forecast_path)
+        fc_all["forecast_month"] = pd.to_datetime(fc_all["forecast_month"])
+
+        conn2 = sqlite3.connect(db_path)
+        comp_meta = pd.read_sql_query("SELECT component_id, brand, model FROM components", conn2)
+        hist_low = pd.read_sql_query(
+            "SELECT component_id, MIN(synthetic_price) AS hist_min FROM synthetic_prices GROUP BY component_id",
+            conn2,
+        )
+        conn2.close()
+
+        fc_all = fc_all.merge(comp_meta, on="component_id", how="left")
+        this_period = pd.Timestamp.today().normalize().to_period("M")
+        fc_all = fc_all[fc_all["forecast_month"].dt.to_period("M") >= this_period]
+
+        if not fc_all.empty:
+
+            picks_per_cat = []
+
+            for cat in ["GPU", "CPU", "RAM", "Storage"]:
+
+                sub = fc_all[fc_all["category"] == cat]
+                if sub.empty:
+                    continue
+
+                rows = []
+
+                for cid, g in sub.groupby("component_id"):
+
+                    g = g.sort_values("forecast_month").reset_index(drop=True)
+                    current = float(g.iloc[0]["predicted_price"])
+
+                    if current <= 0:
+                        continue
+
+                    cheapest = float(g["predicted_price"].min())
+                    pct = (current - cheapest) / current * 100
+                    rows.append({"component_id": cid, "model": g.iloc[0]["model"], "current": current, "pct_savings": pct})
+
+                if not rows:
+                    continue
+
+                df_cat = pd.DataFrame(rows).merge(hist_low, on="component_id", how="left")
+                df_cat["pct_above_hist"] = ((df_cat["current"] - df_cat["hist_min"]) / df_cat["hist_min"] * 100).where(df_cat["hist_min"] > 0)
+                df_cat["score"] = df_cat["pct_above_hist"].fillna(0) + df_cat["pct_savings"]
+                best = df_cat[df_cat["pct_savings"] < 3.0].sort_values("score").head(1)
+
+                if best.empty:
+                    best = df_cat.sort_values("score").head(1)
+
+                b = best.iloc[0]
+                picks_per_cat.append({
+                    "component_id": str(b["component_id"]),
+                    "category": cat,
+                    "model": str(b["model"]) if pd.notna(b["model"]) else str(b["component_id"]),
+                    "current": float(b["current"]),
+                    "pct_above_hist": float(b["pct_above_hist"]) if pd.notna(b["pct_above_hist"]) else None,
+                })
+
+            featured = picks_per_cat
+
     return render_template("summary.html",
                            counts=counts,
                            by_cat=by_cat_rows,
                            regression=reg,
                            classification=cls_rf,
-                           real_backtest=real_backtest)
+                           real_backtest=real_backtest,
+                           featured=featured)
 
 
 # component browser - search bar + result table - replaces cli option 2 entry
@@ -299,6 +367,25 @@ def component_detail(component_id):
     fc = get_forecast(component_id)
     obs = get_observed(component_id)
     mult, n_obs = get_adjustment(component_id)
+
+    # confidence signal: more real_blended rows + more user observations = higher confidence
+    n_real_blended = 0
+    if not syn.empty:
+        n_real_blended = int((syn["data_source"] == "real_blended").sum())
+
+    n_observed_years = len(obs)
+
+    if n_real_blended >= 6 or (n_real_blended >= 3 and n_obs >= 2):
+        confidence = {"level": "high", "label": "High confidence",
+                      "reason": f"{n_real_blended} real-blended observations, {n_observed_years} years of real listings"}
+    elif n_real_blended >= 1 or n_observed_years >= 2:
+        confidence = {"level": "medium", "label": "Medium confidence",
+                      "reason": f"{n_real_blended} real-blended, {n_observed_years}-year observed history"}
+    elif not fc.empty:
+        confidence = {"level": "low", "label": "Extrapolated",
+                      "reason": "synthetic-anchored forecast only"}
+    else:
+        confidence = None
 
     # build chart series (history + forecast in one chart)
 
@@ -438,6 +525,55 @@ def component_detail(component_id):
 
     observed_rows = obs.to_dict("records")
 
+    # per-component value rank vs category peers (lower value_metric is better)
+    value_rank = None
+    vm_path = os.path.join(cleaned_dir, "value_metrics.csv")
+
+    if os.path.exists(vm_path):
+
+        vm = pd.read_csv(vm_path)
+        vm = vm[(vm["category"] == row["category"]) & (vm["year"] == 2025)].dropna(subset=["value_metric"])
+        vm = vm.sort_values("value_metric").reset_index(drop=True)
+
+        if not vm.empty:
+
+            target = vm[vm["component_id"] == component_id]
+            n = len(vm)
+            top = vm.head(10).copy()
+
+            if not target.empty:
+                target_rank = int(target.index[0]) + 1
+                target_value = float(target.iloc[0]["value_metric"])
+                target_in_top = target_rank <= 10
+            else:
+                target_rank = None
+                target_value = None
+                target_in_top = False
+
+            entries = [{
+                "model": str(r["model"])[:42],
+                "component_id": str(r["component_id"]),
+                "value": round(float(r["value_metric"]), 2),
+                "is_target": (r["component_id"] == component_id),
+            } for _, r in top.iterrows()]
+
+            if target_rank is not None and not target_in_top:
+                entries.append({
+                    "model": str(target.iloc[0]["model"])[:42] + f"  (rank {target_rank})",
+                    "component_id": component_id,
+                    "value": round(target_value, 2),
+                    "is_target": True,
+                })
+
+            value_rank = {
+                "metric_label": str(vm.iloc[0]["metric_label"]),
+                "entries": entries,
+                "category_median": round(float(vm["value_metric"].median()), 2),
+                "target_rank": target_rank,
+                "target_value": target_value,
+                "n_total": n,
+            }
+
     # spec display rows per category
     spec_display = []
     spec_labels = {
@@ -487,6 +623,8 @@ def component_detail(component_id):
                            recommendation=recommendation,
                            similar=similar,
                            specs=spec_display,
+                           value_rank=value_rank,
+                           confidence=confidence,
                            has_prediction=has_prediction)
 
 
@@ -730,33 +868,156 @@ def metrics():
                            classification=classification)
 
 
-# visualization gallery - cli option 10
+# interactive visualization gallery driven by the cleaned csvs
 
 @app.route("/visuals")
 def visuals():
 
-    if not os.path.isdir(visuals_dir):
-        return render_template("visuals.html", images=[])
+    panels = []
 
-    files = sorted(f for f in os.listdir(visuals_dir) if f.endswith(".png"))
-    images = []
+    fi_path = os.path.join(cleaned_dir, "feature_importance.csv")
 
-    for f in files:
+    if os.path.exists(fi_path):
 
-        path = os.path.join(visuals_dir, f)
-        size_kb = os.path.getsize(path) // 1024
-        nice = f.replace("_", " ").replace(".png", "")
-        images.append({"filename": f, "size_kb": size_kb, "title": nice})
+        fi = pd.read_csv(fi_path).sort_values("perm_importance_mean", ascending=True)
+        panels.append({
+            "id": "feature_importance",
+            "type": "bar_h",
+            "title": "Feature Importance",
+            "caption": "Permutation importance shuffles each feature and measures MAE lift. expected_price dominates — every other feature moves the error less than $0.02.",
+            "labels": fi["feature"].tolist(),
+            "values": [round(float(v), 3) for v in fi["perm_importance_mean"]],
+            "unit": "$ MAE lift",
+            "color": "#5eead4",
+        })
 
-    return render_template("visuals.html", images=images)
+    pc_path = os.path.join(cleaned_dir, "model_metrics_per_category.csv")
 
+    if os.path.exists(pc_path):
 
-# serves png plots from visuals/
+        pc = pd.read_csv(pc_path)
+        pivot = pc.pivot(index="category", columns="model", values="MAE").reset_index()
+        models = [c for c in pivot.columns if c != "category"]
+        panels.append({
+            "id": "per_category_mae",
+            "type": "bar_grouped",
+            "title": "MAE by Model × Category",
+            "caption": "Mean Absolute Error per category. Lower is better. The Naive baseline (predict expected_price) sits within cents of the best ML model — most of the apparent skill is the linear trend, not the learner.",
+            "labels": pivot["category"].tolist(),
+            "series": [{"name": m, "values": [round(float(v), 2) for v in pivot[m]]} for m in models],
+            "unit": "$",
+        })
 
-@app.route("/visuals/<path:filename>")
-def visual_file(filename):
+    real_rows = []
 
-    return send_from_directory(visuals_dir, filename)
+    for cat, fname in [("GPU", "real_gpu_backtest_metrics"),
+                       ("Storage", "real_storage_backtest_metrics"),
+                       ("RAM", "real_ram_backtest_metrics")]:
+
+        path = os.path.join(cleaned_dir, f"{fname}.csv")
+
+        if not os.path.exists(path):
+            continue
+
+        sub = pd.read_csv(path)
+        sub = sub.assign(category=cat)
+        real_rows.append(sub)
+
+    if real_rows:
+
+        real = pd.concat(real_rows, ignore_index=True)
+        pivot = real.pivot(index="category", columns="model", values="MAE").reset_index()
+        models = [c for c in pivot.columns if c != "category"]
+        panels.append({
+            "id": "real_backtest",
+            "type": "bar_grouped",
+            "title": "Real-Data Backtest (out-of-time)",
+            "caption": "MAE on the last three months of real HardwareDealsCo prices — values the model never saw during training. This is the credible accuracy claim.",
+            "labels": pivot["category"].tolist(),
+            "series": [{"name": m, "values": [round(float(v) if pd.notna(v) else 0, 2) for v in pivot[m]]} for m in models],
+            "unit": "$",
+        })
+
+    vm_path = os.path.join(cleaned_dir, "value_metrics.csv")
+
+    if os.path.exists(vm_path):
+
+        vm = pd.read_csv(vm_path)
+        vm = vm[vm["year"] == 2025].dropna(subset=["value_metric"])
+        cats = sorted(vm["category"].unique())
+        labels = []
+        medians = []
+        p25 = []
+        p75 = []
+
+        for c in cats:
+            sub = vm[vm["category"] == c]["value_metric"]
+            if len(sub) < 5:
+                continue
+            labels.append(c)
+            medians.append(round(float(sub.median()), 2))
+            p25.append(round(float(sub.quantile(0.25)), 2))
+            p75.append(round(float(sub.quantile(0.75)), 2))
+
+        if labels:
+            panels.append({
+                "id": "value_distribution",
+                "type": "box_lite",
+                "title": "Value Metrics by Category",
+                "caption": "Median price-per-unit for 2025 components. Boxes span the 25-75th percentile. Lower bars are better value.",
+                "labels": labels,
+                "median": medians,
+                "p25": p25,
+                "p75": p75,
+                "unit": "$",
+            })
+
+    hp_path = os.path.join(cleaned_dir, "hardest_predictions.csv")
+
+    if os.path.exists(hp_path):
+
+        hp = pd.read_csv(hp_path).sort_values("mean_abs_error", ascending=False).head(12)
+        panels.append({
+            "id": "hardest",
+            "type": "bar_h",
+            "title": "Hardest Predictions",
+            "caption": "Components where the model errs the most. Largely enterprise SSDs and legacy hardware with thin training data — the long tail.",
+            "labels": [str(c)[:50] for c in hp["component_id"]],
+            "values": [round(float(v), 0) for v in hp["mean_abs_error"]],
+            "unit": "$ mean abs error",
+            "color": "#f472b6",
+        })
+
+    bc_path = os.path.join(cleaned_dir, "build_cost_estimates.csv")
+
+    if os.path.exists(bc_path):
+
+        bc = pd.read_csv(bc_path)
+        bc["forecast_month"] = pd.to_datetime(bc["forecast_month"])
+        tiers = ["budget", "mid", "high"]
+        labels = sorted(bc["forecast_month"].unique())
+        series = []
+
+        for tier in tiers:
+            sub = bc[bc["tier"] == tier].sort_values("forecast_month")
+            if sub.empty:
+                continue
+            series.append({
+                "name": tier.capitalize(),
+                "values": [round(float(v), 0) for v in sub["total_cost"]],
+            })
+
+        panels.append({
+            "id": "tier_costs",
+            "type": "line_multi",
+            "title": "12-Month Build Cost Forecast by Tier",
+            "caption": "Total build cost projected forward across budget, mid, and high tiers. Each tier picks one canonical component per category.",
+            "labels": [pd.Timestamp(d).strftime("%Y-%m") for d in labels],
+            "series": series,
+            "unit": "$",
+        })
+
+    return render_template("visuals.html", panels=panels)
 
 
 # this month - best buys + biggest projected drops, ranked across all forecasted components
@@ -960,6 +1221,143 @@ def compare():
                 })
 
     return render_template("compare.html", cids=cids, series=series, summary=summary)
+
+
+# client-side saved/favorites - just renders the shell, js populates it
+
+@app.route("/saved")
+def saved():
+
+    return render_template("saved.html")
+
+
+# bulk lookup of component metadata + current forecast - used by /saved page
+
+@app.route("/api/components/bulk")
+def api_components_bulk():
+
+    ids = [c for c in request.args.getlist("c") if c.strip()][:50]
+
+    if not ids:
+        return jsonify([])
+
+    conn = sqlite3.connect(db_path)
+
+    placeholders = ",".join(["?"] * len(ids))
+    meta = pd.read_sql_query(
+        f"SELECT component_id, category, brand, model FROM components WHERE component_id IN ({placeholders})",
+        conn, params=ids,
+    )
+
+    conn.close()
+
+    out = []
+
+    fc_df = None
+
+    if os.path.exists(forecast_path):
+        fc_df = pd.read_csv(forecast_path)
+        fc_df["forecast_month"] = pd.to_datetime(fc_df["forecast_month"])
+        this_period = pd.Timestamp.today().normalize().to_period("M")
+        fc_df = fc_df[fc_df["forecast_month"].dt.to_period("M") >= this_period]
+
+    for cid in ids:
+
+        row = meta[meta["component_id"] == cid]
+
+        if row.empty:
+            continue
+
+        r = row.iloc[0].to_dict()
+        entry = {
+            "component_id": cid,
+            "category": r.get("category"),
+            "brand": r.get("brand") if pd.notna(r.get("brand")) else "",
+            "model": r.get("model") if pd.notna(r.get("model")) else cid,
+            "current": None,
+            "cheapest": None,
+            "cheapest_date": None,
+            "savings": None,
+            "pct_savings": None,
+        }
+
+        if fc_df is not None:
+
+            sub = fc_df[fc_df["component_id"] == cid].sort_values("forecast_month")
+
+            if not sub.empty:
+
+                current = float(sub.iloc[0]["predicted_price"])
+                idx_min = int(sub["predicted_price"].idxmin())
+                cheapest = float(sub.loc[idx_min, "predicted_price"])
+                cheapest_date = sub.loc[idx_min, "forecast_month"]
+                savings = current - cheapest
+                pct = (savings / current * 100) if current > 0 else 0.0
+
+                entry.update({
+                    "current": round(current, 2),
+                    "cheapest": round(cheapest, 2),
+                    "cheapest_date": cheapest_date.strftime("%b %Y"),
+                    "savings": round(savings, 2),
+                    "pct_savings": round(pct, 1),
+                })
+
+        out.append(entry)
+
+    return jsonify(out)
+
+
+# build presets - one canonical component per tier per category by 2025 price quartile
+
+@app.route("/api/build-presets")
+def api_build_presets():
+
+    conn = sqlite3.connect(db_path)
+
+    df = pd.read_sql_query("""
+        SELECT c.component_id, c.category, c.brand, c.model, o.observed_price_median AS price
+        FROM components c
+        JOIN observed_prices o ON c.component_id = o.component_id
+        WHERE o.year = 2025 AND o.observed_price_median > 0
+    """, conn)
+
+    conn.close()
+
+    forecast_ids = set()
+
+    if os.path.exists(forecast_path):
+        forecast_ids = set(pd.read_csv(forecast_path)["component_id"].unique())
+
+    if forecast_ids:
+        df = df[df["component_id"].isin(forecast_ids)]
+
+    out = {}
+
+    for tier, q in [("budget", 0.25), ("mid", 0.50), ("high", 0.75)]:
+
+        picks = {}
+
+        for cat in ["GPU", "CPU", "RAM", "Storage"]:
+
+            sub = df[df["category"] == cat]
+
+            if sub.empty:
+                continue
+
+            target = sub["price"].quantile(q)
+            sub = sub.copy()
+            sub["dist"] = (sub["price"] - target).abs()
+            pick = sub.sort_values("dist").iloc[0]
+
+            picks[cat] = {
+                "component_id": str(pick["component_id"]),
+                "model": str(pick["model"]) if pd.notna(pick["model"]) else str(pick["component_id"]),
+                "price": round(float(pick["price"]), 2),
+            }
+
+        out[tier] = picks
+
+    return jsonify(out)
 
 
 # build planner - cli option 11

@@ -66,7 +66,7 @@
 {% block scripts %}
 <script>
 const initial = {{ series|tojson }};
-const palette = ['#9c3324', '#2e3e5b', '#5a7549', '#a87a1f'];
+const palette = ['#f472b6', '#60a5fa', '#34d399', '#fbbf24'];
 let picked = [];
 let chart = null;
 
@@ -183,12 +183,12 @@ if (initial.length) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#1c1916', font: { family: 'system-ui', size: 11 }, usePointStyle: true, boxWidth: 12, padding: 14 }, position: 'bottom' },
-        tooltip: { backgroundColor: '#1c1916', titleFont: { family: 'system-ui' }, bodyFont: { family: 'ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
+        legend: { labels: { color: '#e6ecf5', font: { family: 'Inter, system-ui', size: 11 }, usePointStyle: true, boxWidth: 12, padding: 14 }, position: 'bottom' },
+        tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: '#e6ecf5', bodyColor: '#e6ecf5', titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
       },
       scales: {
-        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, ticks: { color: '#847b6c', font: { family: 'system-ui', size: 11 }, maxRotation: 0 }, grid: { color: '#c9c0a8', drawTicks: false } },
-        y: { ticks: { color: '#847b6c', font: { family: 'ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: '#c9c0a8', drawTicks: false } }
+        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, ticks: { color: '#7a8699', font: { family: 'Inter, system-ui', size: 11 }, maxRotation: 0 }, grid: { color: 'rgba(40,50,74,0.5)', drawTicks: false } },
+        y: { ticks: { color: '#7a8699', font: { family: 'JetBrains Mono, ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: 'rgba(40,50,74,0.5)', drawTicks: false } }
       }
     }
   });
