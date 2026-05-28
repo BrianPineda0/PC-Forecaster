@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}PC Forecaster{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <h1 class="wordmark">PC <em>Forecaster</em></h1>
+    <p class="tagline">Knowing the right month to buy the parts you&rsquo;ve been eyeing.</p>
+    <div class="rule"></div>
+    <p class="section-label">Sections</p>
+    <nav>
+      <a href="{{ url_for('summary') }}" class="{% if active == 'summary' %}active{% endif %}">Summary</a>
+      <a href="{{ url_for('components') }}" class="{% if active == 'components' %}active{% endif %}">Components</a>
+      <a href="{{ url_for('build') }}" class="{% if active == 'build' %}active{% endif %}">Build Planner</a>
+      <a href="{{ url_for('metrics') }}" class="{% if active == 'metrics' %}active{% endif %}">Metrics</a>
+      <a href="{{ url_for('visuals') }}" class="{% if active == 'visuals' %}active{% endif %}">Visuals</a>
+      <a href="{{ url_for('pipeline') }}" class="{% if active == 'pipeline' %}active{% endif %}">Pipeline</a>
+      <a href="{{ url_for('observations') }}" class="{% if active == 'observations' %}active{% endif %}">Observations</a>
+    </nav>
+    <p class="footer-note">
+      Forecasts refreshed monthly. <br>
+      Local install, your machine.
+    </p>
+  </aside>
+  <main class="content">
+    {% block content %}{% endblock %}
+    <div class="colophon">
+      Built on PCPartPicker snapshots and daily HardwareDealsCo price feeds. <br>
+      Forecasts use a Random Forest model with out-of-time backtesting on real held-out prices.
+    </div>
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

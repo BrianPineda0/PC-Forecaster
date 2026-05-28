@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% set active = 'components' %}
+{% block title %}Components &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">Browse the catalogue</p>
+<h1 class="page-title">Find a <em>component</em>.</h1>
+<p class="page-lede">6,078 parts across GPU, CPU, RAM, and Storage. Click any result for full price history, a 12-month forecast, and a buy-or-wait recommendation.</p>
+
+<form class="search-bar" method="get" action="{{ url_for('components') }}">
+  <input type="text" name="q" placeholder="rtx 4070, ryzen 7 7700x, ddr5 6000 32gb, nvme 1tb&hellip;" value="{{ q }}" autofocus>
+  <select name="cat">
+    <option value="">All categories</option>
+    {% for c in ['GPU', 'CPU', 'RAM', 'Storage'] %}
+      <option value="{{ c }}" {% if cat == c %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Search</button>
+</form>
+
+{% if q and not results %}
+  <div class="empty-state">No matches for &ldquo;{{ q }}&rdquo;. Try a shorter or different query.</div>
+{% endif %}
+
+{% if results %}
+  <p class="results-count">
+    {{ results|length }} result{{ '' if results|length == 1 else 's' }}{% if results|length == 200 %} &mdash; limit reached, narrow the query for more{% endif %}
+  </p>
+  <div class="results-list">
+  {% for r in results %}
+    <a href="{{ url_for('component_detail', component_id=r.component_id) }}" class="result-row" style="display:grid">
+      <span class="cat-slot {{ r.category|lower }}">{{ r.category }}</span>
+      <span>
+        <span class="name">{{ r.model }}</span>
+        <div class="cid">{{ r.component_id }}</div>
+      </span>
+      <span class="arrow">&rarr;</span>
+    </a>
+  {% endfor %}
+  </div>
+{% endif %}
+
+{% if not q %}
+  <div class="empty-state">Type a query above to begin.</div>
+{% endif %}
+{% endblock %}

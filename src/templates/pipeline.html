@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set active = 'pipeline' %}
+{% block title %}Pipeline &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">How the data flows</p>
+<h1 class="page-title">The <em>pipeline</em>.</h1>
+<p class="page-lede">Ten stages, run end-to-end by <span class="mono">python src/main.py</span> from the project root. Each stage writes a CSV (or a SQLite table) that the next stage reads.</p>
+
+<h2 class="section-head">Stages</h2>
+<ol class="pipeline-list">
+{% for num, name, desc in stages %}
+  <li>
+    <div class="stage-num">{{ num }}</div>
+    <div class="stage-name">{{ name }}</div>
+    <div class="stage-desc">{{ desc }}</div>
+  </li>
+{% endfor %}
+</ol>
+
+<h2 class="section-head">Data Lineage</h2>
+<div class="statbar" style="margin-bottom:28px">
+  <div class="stat"><div class="label">Components</div><div class="value">{{ "{:,}".format(lineage.components) }}</div></div>
+  <div class="stat"><div class="label">Observed prices</div><div class="value">{{ "{:,}".format(lineage.observed) }}</div></div>
+  <div class="stat"><div class="label">Matched (2023 ∩ 2025)</div><div class="value">{{ "{:,}".format(lineage.matched_components) }}</div></div>
+  <div class="stat"><div class="label">Monthly rows</div><div class="value">{{ "{:,}".format(lineage.synthetic_total) }}</div></div>
+  <div class="stat"><div class="label">Real-blended</div><div class="value">{{ "{:,}".format(lineage.real_blended_total) }}</div></div>
+  <div class="stat"><div class="label">External tables</div><div class="value">3</div></div>
+</div>
+
+<div class="col-2-eq">
+  <div>
+    <h3 class="sub-head">Real-blended rows by category</h3>
+    <table class="compact">
+      <tbody>
+      {% for r in lineage.real_blended_by_cat %}
+        <tr><td class="lead">{{ r.category }}</td><td class="num">{{ "{:,}".format(r.n) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <h3 class="sub-head">External real-price tables</h3>
+    <p class="body-note" style="margin-top:-8px;margin-bottom:8px"><em>HardwareDealsCo daily snapshots, Sep 2025 – May 2026.</em></p>
+    <table class="compact">
+      <tbody>
+        <tr><td class="lead mono" style="font-size:12px">gpu_chipset_real_prices</td><td class="num">{{ "{:,}".format(lineage.gpu_real) }}</td></tr>
+        <tr><td class="lead mono" style="font-size:12px">drive_real_prices</td><td class="num">{{ "{:,}".format(lineage.drive_real) }}</td></tr>
+        <tr><td class="lead mono" style="font-size:12px">ram_real_prices</td><td class="num">{{ "{:,}".format(lineage.ram_real) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2 class="section-head">Where Each Stage Gets Its Data</h2>
+<table class="editorial">
+  <thead><tr><th>Stage</th><th>Reads</th></tr></thead>
+  <tbody>
+    <tr><td class="lead">5 &middot; regression</td><td class="muted">synthetic + real-blended price history</td></tr>
+    <tr><td class="lead">5 &middot; real backtests</td><td class="muted">real-blended rows only, last 3 months held out</td></tr>
+    <tr><td class="lead">6 &middot; estimator</td><td class="muted">forecast + k-means on real specs</td></tr>
+    <tr><td class="lead">7 &middot; value metrics</td><td class="muted">real observed prices (PCPartPicker)</td></tr>
+    <tr><td class="lead">8 &middot; classifier</td><td class="muted">real observed prices (PCPartPicker)</td></tr>
+    <tr><td class="lead">9 &middot; spec regression</td><td class="muted">real observed 2025 prices, cross-sectional</td></tr>
+  </tbody>
+</table>
+
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set active = 'visuals' %}
+{% block title %}Visuals &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">Plate section</p>
+<h1 class="page-title">The <em>charts</em>.</h1>
+<p class="page-lede">Every plot produced by the pipeline &mdash; price trends with annotated market events, spec correlations, real-vs-synthetic overlays, classifier diagnostics, and the build-cost tier projection.</p>
+
+{% if not images %}
+  <div class="empty-state">No plots found in <span class="mono">visuals/</span>. Run <span class="mono">python src/main.py</span> first.</div>
+{% else %}
+<div class="viz-grid">
+  {% for img in images %}
+  <figure class="viz-fig">
+    <a href="{{ url_for('visual_file', filename=img.filename) }}" target="_blank">
+      <img src="{{ url_for('visual_file', filename=img.filename) }}" alt="{{ img.title }}" loading="lazy">
+    </a>
+    <figcaption>
+      <span>{{ img.title }}</span>
+      <span class="size">{{ img.size_kb }} KB</span>
+    </figcaption>
+  </figure>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

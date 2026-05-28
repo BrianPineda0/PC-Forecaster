@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set active = 'observations' %}
+{% block title %}Observations &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">Your data</p>
+<h1 class="page-title">Observations &amp; <em>calibrations</em>.</h1>
+<p class="page-lede">Every real-world price you&rsquo;ve submitted and the calibration multipliers they&rsquo;ve produced. Submit new observations from any component&rsquo;s detail page.</p>
+
+<h2 class="section-head">Recent Observations</h2>
+{% if observations %}
+<table class="editorial">
+  <thead><tr>
+    <th>Date</th>
+    <th>Component</th>
+    <th class="num">Observed</th>
+    <th class="num">Predicted</th>
+    <th class="num">Ratio</th>
+  </tr></thead>
+  <tbody>
+  {% for r in observations %}
+    <tr>
+      <td>{{ r.observation_date }}</td>
+      <td><a href="{{ url_for('component_detail', component_id=r.component_id) }}" class="mono" style="font-size:13px">{{ r.component_id }}</a></td>
+      <td class="num">${{ "%.2f"|format(r.observed_price) }}</td>
+      <td class="num">${{ "%.2f"|format(r.predicted_price) }}</td>
+      <td class="num">{{ "%.3f"|format(r.ratio) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="body-note">No observations recorded yet. Find a component, then submit a price you saw in the wild.</p>
+{% endif %}
+
+<h2 class="section-head">Active Calibrations</h2>
+{% if calibrations %}
+<table class="editorial">
+  <thead><tr>
+    <th>Component</th>
+    <th class="num">Multiplier</th>
+    <th class="num">n</th>
+    <th>Last updated</th>
+  </tr></thead>
+  <tbody>
+  {% for r in calibrations %}
+    <tr>
+      <td><a href="{{ url_for('component_detail', component_id=r.component_id) }}" class="mono" style="font-size:13px">{{ r.component_id }}</a></td>
+      <td class="num">×{{ "%.4f"|format(r.multiplier) }}</td>
+      <td class="num">{{ r.n_observations }}</td>
+      <td class="muted" style="font-size:13px">{{ r.last_updated[:19] }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="body-note">No active calibrations.</p>
+{% endif %}
+
+{% if observations or calibrations %}
+<h2 class="section-head">Reset</h2>
+<p class="body-note">Wipes every observation and calibration multiplier. Cannot be undone.</p>
+<form method="post" action="{{ url_for('reset_observations') }}" onsubmit="return confirm('Delete every observation and calibration multiplier? This cannot be undone.');">
+  <button type="submit" class="btn danger">Reset all</button>
+</form>
+{% endif %}
+
+{% endblock %}

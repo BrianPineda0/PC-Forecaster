@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% set active = 'build' %}
+{% block title %}Build Planner &middot; PC Forecaster{% endblock %}
+
+{% block content %}
+<p class="kicker">Plan a build</p>
+<h1 class="page-title">Project the <em>cost</em> of your build.</h1>
+<p class="page-lede">Choose one component per category. We&rsquo;ll project the total monthly cost across the next 12 forecast months and call out the cheapest month to commit.</p>
+
+<div class="build-grid">
+  {% for cat in ['GPU', 'CPU', 'RAM', 'Storage'] %}
+  <div class="picker" data-cat="{{ cat }}">
+    <div class="cat-label">
+      <span class="cat-name {{ cat|lower }}">{{ cat }}</span>
+      <span class="cat-hint">type to search</span>
+    </div>
+    <div class="results-dropdown">
+      <input type="text" placeholder="{{ {'GPU':'rtx 4070, rx 7800 xt…', 'CPU':'ryzen 7 7700x, i7-14700k…', 'RAM':'ddr5 6000 32gb…', 'Storage':'nvme 1tb, sata 2tb…'}[cat] }}" data-search autocomplete="off">
+      <div class="results-list" data-list></div>
+    </div>
+    <div class="picked empty" data-picked>none selected</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="build-actions">
+  <button id="computeBtn" class="btn">Project build cost</button>
+  <button id="clearBtn" class="btn ghost">Clear all</button>
+</div>
+
+<div id="result" style="display:none">
+  <h2 class="section-head">Projected Build Cost</h2>
+  <div class="statbar" style="margin-bottom:24px">
+    <div class="stat"><div class="label">Cheapest month</div><div class="value" id="cheapMonth">—</div></div>
+    <div class="stat"><div class="label">at total</div><div class="value mono" id="cheapAmount" style="font-size:22px"></div></div>
+    <div class="stat"><div class="label">Priciest month</div><div class="value" id="pricyMonth">—</div></div>
+    <div class="stat"><div class="label">at total</div><div class="value mono" id="pricyAmount" style="font-size:22px"></div></div>
+    <div class="stat"><div class="label">Savings</div><div class="value" id="savings">—</div></div>
+    <div class="stat"><div class="label">% off priciest</div><div class="value" id="savingsPct">—</div></div>
+  </div>
+
+  <div class="chart-wrap tall"><canvas id="buildChart"></canvas></div>
+  <p class="chart-caption">Monthly total stacked by category, across the 12-month forecast horizon.</p>
+
+  <h2 class="section-head">Per-Month Breakdown</h2>
+  <table class="editorial" id="breakdown">
+    <thead><tr>
+      <th>Month</th>
+      <th class="num">GPU</th>
+      <th class="num">CPU</th>
+      <th class="num">RAM</th>
+      <th class="num">Storage</th>
+      <th class="num">Total</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div id="emptyHint" class="empty-state">Pick at least one component above, then click <em>Project build cost</em>.</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const picked = { GPU: null, CPU: null, RAM: null, Storage: null };
+let chart = null;
+
+function debounce(fn, ms) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+document.querySelectorAll('.picker').forEach(panel => {
+  const cat = panel.dataset.cat;
+  const input = panel.querySelector('[data-search]');
+  const list = panel.querySelector('[data-list]');
+  const pickedEl = panel.querySelector('[data-picked]');
+
+  const search = debounce(async () => {
+    const q = input.value.trim();
+    if (!q) { list.classList.remove('show'); list.innerHTML = ''; return; }
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&cat=${cat}&forecast=1`);
+    const data = await res.json();
+    if (!data.length) { list.innerHTML = '<div class="opt"><div class="muted">no matches</div></div>'; list.classList.add('show'); return; }
+    list.innerHTML = data.map(d =>
+      `<div class="opt" data-cid="${d.component_id.replace(/"/g, '&quot;')}" data-model="${(d.model||'').replace(/"/g, '&quot;')}">
+        <div class="opt-model">${d.model || ''}</div>
+        <div class="opt-cid">${d.component_id}</div>
+       </div>`
+    ).join('');
+    list.classList.add('show');
+    list.querySelectorAll('.opt[data-cid]').forEach(opt => {
+      opt.addEventListener('click', () => {
+        picked[cat] = opt.dataset.cid;
+        pickedEl.classList.remove('empty');
+        pickedEl.innerHTML = `<div class="pmodel">${opt.dataset.model || '(no model name)'}</div><div class="pcid">${opt.dataset.cid}</div>`;
+        input.value = '';
+        list.classList.remove('show');
+      });
+    });
+  }, 150);
+
+  input.addEventListener('input', search);
+  input.addEventListener('focus', () => { if (input.value.trim()) search(); });
+  document.addEventListener('click', e => {
+    if (!panel.contains(e.target)) list.classList.remove('show');
+  });
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  Object.keys(picked).forEach(k => picked[k] = null);
+  document.querySelectorAll('[data-picked]').forEach(p => { p.textContent = 'none selected'; p.classList.add('empty'); });
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('emptyHint').style.display = 'block';
+});
+
+document.getElementById('computeBtn').addEventListener('click', async () => {
+  const selected = Object.fromEntries(Object.entries(picked).filter(([_, v]) => v));
+  if (!Object.keys(selected).length) {
+    alert('Pick at least one component first.');
+    return;
+  }
+  const res = await fetch('/api/build', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(selected),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    alert(err.error || 'compute failed');
+    return;
+  }
+  const data = await res.json();
+  renderResult(data);
+});
+
+function renderResult(data) {
+  document.getElementById('emptyHint').style.display = 'none';
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('cheapMonth').textContent = data.cheapest.month.slice(0, 7);
+  document.getElementById('cheapAmount').textContent = `$${data.cheapest.total.toFixed(0)}`;
+  document.getElementById('pricyMonth').textContent = data.priciest.month.slice(0, 7);
+  document.getElementById('pricyAmount').textContent = `$${data.priciest.total.toFixed(0)}`;
+  document.getElementById('savings').textContent = `$${data.savings.toFixed(0)}`;
+  document.getElementById('savingsPct').textContent = `${data.pct_savings.toFixed(1)}%`;
+
+  const tbody = document.querySelector('#breakdown tbody');
+  tbody.innerHTML = data.rows.map(r =>
+    `<tr>
+      <td>${r.month.slice(0, 7)}</td>
+      <td class="num">${r.GPU ? '$' + r.GPU.toFixed(2) : '—'}</td>
+      <td class="num">${r.CPU ? '$' + r.CPU.toFixed(2) : '—'}</td>
+      <td class="num">${r.RAM ? '$' + r.RAM.toFixed(2) : '—'}</td>
+      <td class="num">${r.Storage ? '$' + r.Storage.toFixed(2) : '—'}</td>
+      <td class="num"><strong>$${r.total.toFixed(2)}</strong></td>
+    </tr>`
+  ).join('');
+
+  if (chart) chart.destroy();
+  const cats = Object.keys(data.used);
+  const colors = { GPU: '#9c3324', CPU: '#2e3e5b', RAM: '#5a7549', Storage: '#a87a1f' };
+  const datasets = cats.map(c => ({
+    label: c,
+    data: data.rows.map(r => ({ x: r.month, y: r[c] || 0 })),
+    backgroundColor: colors[c],
+    borderColor: colors[c],
+    stack: 'build',
+    borderWidth: 0,
+  }));
+
+  chart = new Chart(document.getElementById('buildChart'), {
+    type: 'bar',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#1c1916', font: { family: 'system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
+        tooltip: { backgroundColor: '#1c1916', titleFont: { family: 'system-ui' }, bodyFont: { family: 'ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
+      },
+      scales: {
+        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, stacked: true, ticks: { color: '#847b6c', font: { family: 'system-ui', size: 11 }, maxRotation: 0 }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: '#847b6c', font: { family: 'ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: '#c9c0a8', drawTicks: false } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}
