@@ -193,7 +193,7 @@ def main():
         "Decision Tree": DecisionTreeClassifier(max_depth=6, random_state=42),
         "Random Forest": RandomForestClassifier(n_estimators=120, max_depth=10, random_state=42, n_jobs=-1),
     }
-Z
+
     metrics_rows = []
     per_cat_data = {}
 

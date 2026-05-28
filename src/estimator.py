@@ -116,7 +116,9 @@ def build_cost_table(df):
 
 def print_summary(table):
 
-    print("\nBuild cost estimates (Jun 2025 - May 2026):\n")
+    months = sorted(table["forecast_month"].unique())
+    span_label = f"{pd.Timestamp(months[0]).strftime('%b %Y')} - {pd.Timestamp(months[-1]).strftime('%b %Y')}"
+    print(f"\nBuild cost estimates ({span_label}):\n")
 
     for tier in ["budget", "mid", "high"]:
 
@@ -161,7 +163,9 @@ def plot_build_costs(table):
             color=colors[tier],
         )
 
-    ax.set_title("Projected PC Build Cost by Tier (Jun 2025 - May 2026)")
+    months = sorted(table["forecast_month"].unique())
+    span_label = f"{pd.Timestamp(months[0]).strftime('%b %Y')} - {pd.Timestamp(months[-1]).strftime('%b %Y')}"
+    ax.set_title(f"Projected PC Build Cost by Tier ({span_label})")
     ax.set_xlabel("Month")
     ax.set_ylabel("Total Build Cost ($)")
     ax.legend()

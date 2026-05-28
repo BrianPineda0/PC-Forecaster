@@ -556,6 +556,10 @@ def main():
 
     cv_eval(df)
 
+    train = df.dropna(subset=feature_cols + ["synthetic_price"])
+    train = train[train["time_step"] < train_cutoff]
+    models[best_name].fit(train[feature_cols].values, train["synthetic_price"].values)
+
     print_feature_importance(best_name)
 
     X_test = test[feature_cols].values
