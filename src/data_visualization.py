@@ -343,8 +343,8 @@ def load_corr_data(category, spec_cols):
         SELECT {cols}
         FROM components c
         JOIN observed_prices o ON c.component_id = o.component_id
-        WHERE c.category = '{category}'
-    """, conn)
+        WHERE c.category = ?
+    """, conn, params=[category])
     conn.close()
     return df
 
