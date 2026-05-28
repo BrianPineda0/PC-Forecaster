@@ -1584,18 +1584,20 @@ footer.site-footer {
 
 .save-btn.floating {
   position: absolute;
-  top: 12px;
+  bottom: 12px;
   right: 12px;
   padding: 6px;
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(11, 14, 20, 0.8);
+  background: rgba(11, 14, 20, 0.85);
   backdrop-filter: blur(8px);
   z-index: 2;
 }
 
 .save-btn.floating:hover { background: var(--panel-hi); }
+
+.deal-card .deal-foot { padding-right: 38px; }
 
 /* ============ build presets ============ */
 
