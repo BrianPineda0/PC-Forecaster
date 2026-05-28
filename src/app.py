@@ -334,7 +334,7 @@ def component_detail(component_id):
         cheapest = future.loc[future["price"].idxmin()]
         priciest = future.loc[future["price"].idxmax()]
         savings = float(current["price"] - cheapest["price"])
-        pct = (savings / float(current["price"]) * 100) if current["price"] > 0 else 0.0
+        pct = round((savings / float(current["price"]) * 100), 1) if current["price"] > 0 else 0.0
         months_to_cheapest = (cheapest["date"].to_period("M") - current["date"].to_period("M")).n
 
         hist_min = None
