@@ -3,25 +3,116 @@
 {% block title %}Visuals &middot; PC Forecaster{% endblock %}
 
 {% block content %}
-<p class="kicker">Plate section</p>
-<h1 class="page-title">The <em>charts</em>.</h1>
-<p class="page-lede">Every plot produced by the pipeline &mdash; price trends with annotated market events, spec correlations, real-vs-synthetic overlays, classifier diagnostics, and the build-cost tier projection.</p>
+<p class="kicker">The data, charted</p>
+<h1 class="page-title">How the <em>model</em> sees the market.</h1>
+<p class="page-lede">Interactive views of what the pipeline produced &mdash; permutation importance, real-data backtest errors, per-category value, and the 12-month tier forecast. Hover any chart for exact numbers.</p>
 
-{% if not images %}
-  <div class="empty-state">No plots found in <span class="mono">visuals/</span>. Run <span class="mono">python src/main.py</span> first.</div>
-{% else %}
+{% if panels %}
 <div class="viz-grid">
-  {% for img in images %}
+  {% for p in panels %}
   <figure class="viz-fig">
-    <a href="{{ url_for('visual_file', filename=img.filename) }}" target="_blank">
-      <img src="{{ url_for('visual_file', filename=img.filename) }}" alt="{{ img.title }}" loading="lazy">
-    </a>
-    <figcaption>
-      <span>{{ img.title }}</span>
-      <span class="size">{{ img.size_kb }} KB</span>
-    </figcaption>
+    <div class="viz-head">
+      <h3 class="viz-title">{{ p.title }}</h3>
+    </div>
+    <div class="viz-chart-wrap">
+      <canvas id="viz-{{ p.id }}"></canvas>
+    </div>
+    <figcaption>{{ p.caption }}</figcaption>
   </figure>
   {% endfor %}
 </div>
+{% else %}
+<div class="empty-state">No cleaned CSVs found &mdash; run <span class="mono">python src/main.py</span> to generate.</div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const panels = {{ panels|tojson }};
+const ink = '#e6ecf5';
+const muted = '#7a8699';
+const grid = 'rgba(40,50,74,0.5)';
+const palette = ['#5eead4', '#60a5fa', '#f472b6', '#fbbf24', '#34d399', '#a78bfa'];
+
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: ink, font: { family: 'Inter, system-ui', size: 11 }, usePointStyle: true, boxWidth: 10, padding: 14 }, position: 'bottom' },
+    tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: ink, bodyColor: ink, titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' } }
+  },
+};
+
+function axisX(opts={}) {
+  return { ticks: { color: muted, font: { family: 'Inter, system-ui', size: 10 }, maxRotation: opts.rotate || 0, autoSkip: false }, grid: { color: grid, drawTicks: false } };
+}
+function axisY(dollar=true) {
+  return { ticks: { color: muted, font: { family: 'JetBrains Mono, ui-monospace', size: 10 }, callback: v => (dollar ? '$' : '') + v }, grid: { color: grid, drawTicks: false } };
+}
+
+panels.forEach(p => {
+  const ctx = document.getElementById('viz-' + p.id);
+  if (!ctx) return;
+
+  if (p.type === 'bar_h') {
+    new Chart(ctx, {
+      type: 'bar',
+      data: { labels: p.labels, datasets: [{ label: p.unit, data: p.values, backgroundColor: p.color || palette[0], borderRadius: 4, borderWidth: 0 }] },
+      options: { ...baseOpts, indexAxis: 'y',
+        plugins: { ...baseOpts.plugins, legend: { display: false }, tooltip: { ...baseOpts.plugins.tooltip, callbacks: { label: c => `${c.parsed.x.toFixed(2)} ${p.unit}` } } },
+        scales: { x: axisY(false), y: { ticks: { color: muted, font: { family: 'JetBrains Mono, ui-monospace', size: 10 } }, grid: { color: grid, drawTicks: false } } }
+      }
+    });
+    return;
+  }
+
+  if (p.type === 'bar_grouped') {
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: p.labels,
+        datasets: p.series.map((s, i) => ({ label: s.name, data: s.values, backgroundColor: palette[i % palette.length], borderRadius: 3, borderWidth: 0 }))
+      },
+      options: { ...baseOpts,
+        plugins: { ...baseOpts.plugins, tooltip: { ...baseOpts.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } } },
+        scales: { x: axisX(), y: axisY() }
+      }
+    });
+    return;
+  }
+
+  if (p.type === 'box_lite') {
+    const ranges = p.labels.map((_, i) => [p.p25[i], p.p75[i]]);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: p.labels,
+        datasets: [
+          { label: '25–75th percentile', data: ranges, backgroundColor: 'rgba(94,234,212,0.25)', borderColor: '#5eead4', borderWidth: 1, borderSkipped: false, borderRadius: 2 },
+          { label: 'Median', data: p.median, type: 'line', borderColor: '#fbbf24', backgroundColor: '#fbbf24', pointRadius: 6, pointHoverRadius: 8, showLine: false }
+        ]
+      },
+      options: { ...baseOpts,
+        plugins: { ...baseOpts.plugins, tooltip: { ...baseOpts.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${Array.isArray(c.raw) ? '$' + c.raw[0].toFixed(2) + '–$' + c.raw[1].toFixed(2) : '$' + c.parsed.y.toFixed(2)}` } } },
+        scales: { x: axisX(), y: axisY() }
+      }
+    });
+    return;
+  }
+
+  if (p.type === 'line_multi') {
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: p.labels,
+        datasets: p.series.map((s, i) => ({ label: s.name, data: s.values, borderColor: palette[i % palette.length], backgroundColor: 'transparent', tension: 0.25, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2 }))
+      },
+      options: { ...baseOpts,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { ...baseOpts.plugins, tooltip: { ...baseOpts.plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(0)}` } } },
+        scales: { x: axisX(), y: axisY() }
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

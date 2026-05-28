@@ -7,6 +7,13 @@
 <h1 class="page-title">Project the <em>cost</em> of your build.</h1>
 <p class="page-lede">Choose one component per category. We&rsquo;ll project the total monthly cost across the next 12 forecast months and call out the cheapest month to commit.</p>
 
+<div class="preset-row">
+  <span class="preset-label">Quick start</span>
+  <button class="preset-btn budget" data-preset="budget">Budget build</button>
+  <button class="preset-btn mid" data-preset="mid">Mid-range build</button>
+  <button class="preset-btn high" data-preset="high">High-end build</button>
+</div>
+
 <div class="build-grid">
   {% for cat in ['GPU', 'CPU', 'RAM', 'Storage'] %}
   <div class="picker" data-cat="{{ cat }}">
@@ -166,6 +173,34 @@ if (Object.values(picked).some(v => v)) {
   computeBuild();
 }
 
+let presets = null;
+
+async function loadPresets() {
+  const res = await fetch('/api/build-presets');
+  presets = await res.json();
+}
+loadPresets();
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!presets) await loadPresets();
+    if (!presets) return;
+    const tier = btn.dataset.preset;
+    const picks_tier = presets[tier] || {};
+    Object.entries(picks_tier).forEach(([cat, info]) => {
+      picked[cat] = info.component_id;
+      const panel = document.querySelector(`.picker[data-cat="${cat}"]`);
+      if (!panel) return;
+      const pickedEl = panel.querySelector('[data-picked]');
+      pickedEl.classList.remove('empty');
+      pickedEl.innerHTML = `<div class="pmodel">${info.model}</div><div class="pcid">${info.component_id}</div>`;
+      const input = panel.querySelector('[data-search]');
+      if (input) input.value = '';
+    });
+    computeBuild();
+  });
+});
+
 function renderResult(data) {
   document.getElementById('emptyHint').style.display = 'none';
   document.getElementById('result').style.display = 'block';
@@ -190,7 +225,7 @@ function renderResult(data) {
 
   if (chart) chart.destroy();
   const cats = Object.keys(data.used);
-  const colors = { GPU: '#9c3324', CPU: '#2e3e5b', RAM: '#5a7549', Storage: '#a87a1f' };
+  const colors = { GPU: '#f472b6', CPU: '#60a5fa', RAM: '#34d399', Storage: '#fbbf24' };
   const datasets = cats.map(c => ({
     label: c,
     data: data.rows.map(r => ({ x: r.month, y: r[c] || 0 })),
@@ -207,12 +242,12 @@ function renderResult(data) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#1c1916', font: { family: 'system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
-        tooltip: { backgroundColor: '#1c1916', titleFont: { family: 'system-ui' }, bodyFont: { family: 'ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
+        legend: { labels: { color: '#e6ecf5', font: { family: 'Inter, system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
+        tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: '#e6ecf5', bodyColor: '#e6ecf5', titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
       },
       scales: {
-        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, stacked: true, ticks: { color: '#847b6c', font: { family: 'system-ui', size: 11 }, maxRotation: 0 }, grid: { display: false } },
-        y: { stacked: true, ticks: { color: '#847b6c', font: { family: 'ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: '#c9c0a8', drawTicks: false } }
+        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, stacked: true, ticks: { color: '#7a8699', font: { family: 'Inter, system-ui', size: 11 }, maxRotation: 0 }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: '#7a8699', font: { family: 'JetBrains Mono, ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: 'rgba(40,50,74,0.5)', drawTicks: false } }
       }
     }
   });

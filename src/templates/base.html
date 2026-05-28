@@ -9,36 +9,168 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
-<div class="shell">
-  <aside class="sidebar">
-    <h1 class="wordmark">PC <em>Forecaster</em></h1>
-    <p class="tagline">Knowing the right month to buy the parts you&rsquo;ve been eyeing.</p>
-    <div class="rule"></div>
-    <p class="section-label">Sections</p>
-    <nav>
-      <a href="{{ url_for('summary') }}" class="{% if active == 'summary' %}active{% endif %}">Summary</a>
-      <a href="{{ url_for('deals') }}" class="{% if active == 'deals' %}active{% endif %}">This Month</a>
-      <a href="{{ url_for('components') }}" class="{% if active == 'components' %}active{% endif %}">Components</a>
-      <a href="{{ url_for('compare') }}" class="{% if active == 'compare' %}active{% endif %}">Compare</a>
-      <a href="{{ url_for('build') }}" class="{% if active == 'build' %}active{% endif %}">Build Planner</a>
-      <a href="{{ url_for('metrics') }}" class="{% if active == 'metrics' %}active{% endif %}">Metrics</a>
-      <a href="{{ url_for('visuals') }}" class="{% if active == 'visuals' %}active{% endif %}">Visuals</a>
-      <a href="{{ url_for('pipeline') }}" class="{% if active == 'pipeline' %}active{% endif %}">Pipeline</a>
-      <a href="{{ url_for('observations') }}" class="{% if active == 'observations' %}active{% endif %}">Observations</a>
+<header class="topnav">
+  <div class="topnav-inner">
+    <a class="brand" href="{{ url_for('summary') }}">
+      <span class="brand-mark"></span>
+      <span class="brand-text">PC <em>Forecaster</em></span>
+    </a>
+    <div class="topnav-search" data-search-root>
+      <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm5 11l5 5"/></svg>
+      <input type="text" placeholder="Search any component..." aria-label="Search" autocomplete="off" data-global-search>
+      <kbd class="search-hint">/</kbd>
+      <div class="global-results" data-global-results></div>
+    </div>
+    <button class="nav-toggle" type="button" aria-label="Toggle navigation" onclick="document.querySelector('.topnav-inner').classList.toggle('open')">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="topnav-links">
+      <div class="nav-group primary">
+        <a href="{{ url_for('deals') }}" class="{% if active == 'deals' %}active{% endif %}">This Month</a>
+        <a href="{{ url_for('components') }}" class="{% if active == 'components' %}active{% endif %}">Components</a>
+        <a href="{{ url_for('compare') }}" class="{% if active == 'compare' %}active{% endif %}">Compare</a>
+        <a href="{{ url_for('build') }}" class="{% if active == 'build' %}active{% endif %}">Build Planner</a>
+        <a href="{{ url_for('saved') }}" class="{% if active == 'saved' %}active{% endif %}">Saved <span class="nav-badge" data-saved-badge style="display:none">0</span></a>
+      </div>
+      <span class="nav-sep"></span>
+      <div class="nav-group secondary">
+        <a href="{{ url_for('summary') }}" class="{% if active == 'summary' %}active{% endif %}">Overview</a>
+        <a href="{{ url_for('metrics') }}" class="{% if active == 'metrics' %}active{% endif %}">Metrics</a>
+        <a href="{{ url_for('visuals') }}" class="{% if active == 'visuals' %}active{% endif %}">Visuals</a>
+        <a href="{{ url_for('pipeline') }}" class="{% if active == 'pipeline' %}active{% endif %}">Pipeline</a>
+        <a href="{{ url_for('observations') }}" class="{% if active == 'observations' %}active{% endif %}">Observations</a>
+      </div>
     </nav>
-    <p class="footer-note">
-      Forecasts refreshed monthly. <br>
-      Local install, your machine.
-    </p>
-  </aside>
+  </div>
+</header>
+<div class="page">
   <main class="content">
     {% block content %}{% endblock %}
-    <div class="colophon">
-      Built on PCPartPicker snapshots and daily HardwareDealsCo price feeds. <br>
-      Forecasts use a Random Forest model with out-of-time backtesting on real held-out prices.
-    </div>
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h2 class="wordmark">PC <em>Forecaster</em></h2>
+          <p class="desc">Forecast PC component prices 12 months ahead. Random Forest model, backtested on real held-out HardwareDealsCo prices.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Shop</h4>
+          <a href="{{ url_for('deals') }}">This Month</a>
+          <a href="{{ url_for('components') }}">Components</a>
+          <a href="{{ url_for('compare') }}">Compare</a>
+          <a href="{{ url_for('build') }}">Build Planner</a>
+        </div>
+        <div class="footer-col">
+          <h4>Project</h4>
+          <a href="{{ url_for('summary') }}">Overview</a>
+          <a href="{{ url_for('metrics') }}">Model Metrics</a>
+          <a href="{{ url_for('visuals') }}">Visuals</a>
+          <a href="{{ url_for('pipeline') }}">Pipeline</a>
+        </div>
+        <div class="footer-col">
+          <h4>Data</h4>
+          <a href="https://pcpartpicker.com" target="_blank" rel="noopener">PCPartPicker</a>
+          <a href="https://github.com/" target="_blank" rel="noopener">HardwareDealsCo</a>
+          <a href="{{ url_for('observations') }}">Your observations</a>
+        </div>
+      </div>
+      <hr class="footer-rule">
+      <div class="footer-bottom">
+        <div>&copy; 2026 PC Forecaster <span class="dot">&middot;</span> Forecasts refreshed monthly</div>
+        <div>Random Forest <span class="dot">&middot;</span> Out-of-time backtested <span class="dot">&middot;</span> Local install</div>
+      </div>
+    </footer>
   </main>
 </div>
+<script>
+// global search dropdown
+(function() {
+  const root = document.querySelector('[data-search-root]');
+  if (!root) return;
+  const input = root.querySelector('[data-global-search]');
+  const list = root.querySelector('[data-global-results]');
+  let t = null;
+  let active = -1;
+  let items = [];
+
+  function close() { list.classList.remove('show'); active = -1; }
+  function go(cid) { window.location = '/components/' + encodeURIComponent(cid); }
+
+  async function run() {
+    const q = input.value.trim();
+    if (!q) { close(); return; }
+    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    items = await res.json();
+    if (!items.length) {
+      list.innerHTML = '<div class="gr-empty">no matches</div>';
+      list.classList.add('show');
+      return;
+    }
+    list.innerHTML = items.slice(0, 8).map((d, i) => `
+      <a class="gr-item" data-i="${i}" href="/components/${encodeURIComponent(d.component_id)}">
+        <span class="tag ${(d.category||'').toLowerCase()}">${d.category||''}</span>
+        <span class="gr-model">${d.model||d.component_id}</span>
+        <span class="gr-cid">${d.component_id}</span>
+      </a>`).join('');
+    list.classList.add('show');
+  }
+
+  input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 150); });
+  input.addEventListener('focus', () => { if (input.value.trim()) run(); });
+  input.addEventListener('keydown', e => {
+    const opts = list.querySelectorAll('.gr-item');
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % opts.length; opts.forEach((o, i) => o.classList.toggle('hi', i === active)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + opts.length) % opts.length; opts.forEach((o, i) => o.classList.toggle('hi', i === active)); }
+    else if (e.key === 'Enter' && active >= 0 && items[active]) { e.preventDefault(); go(items[active].component_id); }
+    else if (e.key === 'Escape') { input.blur(); close(); }
+  });
+  document.addEventListener('click', e => { if (!root.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+})();
+
+// saved/favorites - localStorage backed
+window.Saved = (function() {
+  const key = 'pcf.saved.v1';
+  function read() { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; } }
+  function write(arr) { localStorage.setItem(key, JSON.stringify(arr)); render(); }
+  function has(cid) { return read().includes(cid); }
+  function toggle(cid) {
+    const arr = read();
+    const i = arr.indexOf(cid);
+    if (i >= 0) arr.splice(i, 1); else arr.push(cid);
+    write(arr);
+    return arr.includes(cid);
+  }
+  function render() {
+    const n = read().length;
+    document.querySelectorAll('[data-saved-badge]').forEach(el => {
+      el.textContent = n;
+      el.style.display = n ? 'inline-flex' : 'none';
+    });
+    document.querySelectorAll('[data-save-btn]').forEach(btn => {
+      const cid = btn.dataset.saveBtn;
+      const saved = has(cid);
+      btn.classList.toggle('saved', saved);
+      btn.setAttribute('aria-pressed', saved);
+      const label = btn.querySelector('[data-save-label]');
+      if (label) label.textContent = saved ? 'Saved' : 'Save';
+    });
+  }
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-save-btn]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    toggle(btn.dataset.saveBtn);
+  });
+  document.addEventListener('DOMContentLoaded', render);
+  return { has, toggle, list: read, render };
+})();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

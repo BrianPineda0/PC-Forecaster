@@ -1,12 +1,56 @@
 {% extends "base.html" %}
 {% set active = 'summary' %}
-{% block title %}Summary &middot; PC Forecaster{% endblock %}
+{% block title %}PC Forecaster &mdash; know the right month to buy{% endblock %}
 
 {% block content %}
-<p class="kicker">An overview</p>
-<h1 class="page-title">Predicting <em>when</em> to build a PC.</h1>
-<p class="page-lede">A 10-stage pipeline ingests two PCPartPicker snapshots, blends them with daily HardwareDealsCo price feeds, and forecasts the cheapest month over the next year &mdash; per category and per build.</p>
+<section class="hero">
+  <div class="hero-inner">
+    <span class="kicker">Updated monthly &middot; Real-data backtested</span>
+    <h1 class="hero-title">Know the right <em>month</em> <br>to buy your PC parts.</h1>
+    <p class="hero-lede">PC Forecaster pulls historical PCPartPicker snapshots and daily HardwareDealsCo price feeds, fits a Random Forest with out-of-time backtests, and projects 12 months of forecast prices for every component &mdash; so you can buy at the bottom, not the top.</p>
+    <div class="hero-cta">
+      <a href="{{ url_for('deals') }}" class="btn btn-hero">See this month's picks &rarr;</a>
+      <a href="{{ url_for('build') }}" class="btn ghost btn-hero">Plan a build</a>
+    </div>
+  </div>
+  <div class="hero-stats">
+    {% for r in real_backtest %}
+      <div class="hero-stat">
+        <div class="hero-stat-label">{{ r.category }} MAE</div>
+        <div class="hero-stat-value">${{ "%.0f"|format(r.MAE) }}</div>
+        <div class="hero-stat-sub">{{ "%.1f"|format(r.MAPE_pct) }}% MAPE on held-out months</div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
 
+{% if featured %}
+<h2 class="section-head">This month&rsquo;s top pick per category</h2>
+<div class="featured-grid">
+  {% for f in featured %}
+  <a class="featured-card" href="{{ url_for('component_detail', component_id=f.component_id) }}">
+    <span class="cat-slot {{ f.category|lower }}">{{ f.category }}</span>
+    <div class="featured-model">{{ f.model }}</div>
+    <div class="featured-price-row">
+      <div>
+        <div class="featured-sub">Forecast now</div>
+        <div class="featured-price">${{ "%.0f"|format(f.current) }}</div>
+      </div>
+      {% if f.pct_above_hist is not none %}
+      <div class="featured-pill {{ 'good' if f.pct_above_hist <= 5 else 'warn' }}">
+        {% if f.pct_above_hist <= 2 %}at historic low
+        {% elif f.pct_above_hist <= 10 %}{{ "%.0f"|format(f.pct_above_hist) }}% above low
+        {% else %}{{ "%.0f"|format(f.pct_above_hist) }}% above low{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+<p class="body-note" style="margin-top:-6px"><a href="{{ url_for('deals') }}">See all picks for this month &rarr;</a></p>
+{% endif %}
+
+<h2 class="section-head">Pipeline scale</h2>
 <div class="statbar">
   <div class="stat"><div class="label">Components</div><div class="value">{{ "{:,}".format(counts.components) }}</div></div>
   <div class="stat"><div class="label">Observed prices</div><div class="value">{{ "{:,}".format(counts.observed) }}</div></div>
@@ -18,7 +62,7 @@
 
 {% if real_backtest %}
 <h2 class="section-head">Real-Data Backtest</h2>
-<p class="body-note">The credible accuracy claim. The model is trained on synthetic plus early real-blended months and tested on the last three months of real prices &mdash; values it never saw.</p>
+<p class="body-note">The credible accuracy claim. The model trains on synthetic plus early real-blended months and is tested on the last three months of real prices &mdash; values it never saw.</p>
 <table class="editorial">
   <thead><tr>
     <th>Category</th>
@@ -57,7 +101,7 @@
 
   {% if classification %}
   <div>
-    <h2 class="section-head">Spec → Tier Classifier</h2>
+    <h2 class="section-head">Spec &rarr; Tier Classifier</h2>
     <p class="body-note" style="margin-bottom:8px">Random Forest, macro-F1 across cheap / mid / expensive.</p>
     <table class="compact">
       <tbody>
