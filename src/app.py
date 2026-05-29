@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 from datetime import datetime
 
@@ -61,19 +62,42 @@ def ensure_user_tables():
     conn.close()
 
 
-# fuzzy substring search on component_id, optionally filter to ones with a forecast row
+# pulls a capacity in gb out of a query like "1tb", "2 tb", "512gb"
+
+def parse_capacity_gb(query):
+
+    m = re.search(r"(\d+(?:\.\d+)?)\s*(tb|gb)\b", query.lower())
+
+    if not m:
+        return None
+
+    value = float(m.group(1))
+    return value * 1000 if m.group(2) == "tb" else value
+
+
+# fuzzy substring search on component_id, plus capacity matching for storage,
+# optionally filter to ones with a forecast row
 
 def find_components(query, require_forecast=False, category=None, limit=50):
 
     conn = sqlite3.connect(db_path)
 
-    sql = """
-        SELECT component_id, category, brand, model
-        FROM components
-        WHERE LOWER(component_id) LIKE ? OR LOWER(model) LIKE ? OR LOWER(brand) LIKE ?
-    """
     needle = f"%{query.lower()}%"
+    where = "(LOWER(component_id) LIKE ? OR LOWER(model) LIKE ? OR LOWER(brand) LIKE ?"
     params = [needle, needle, needle]
+
+    cap_gb = parse_capacity_gb(query)
+
+    if cap_gb is None and category == "Storage" and query.strip().replace(".", "", 1).isdigit():
+        cap_gb = float(query.strip())
+
+    if cap_gb is not None:
+        where += " OR capacity_gb BETWEEN ? AND ?"
+        params.extend([cap_gb * 0.95, cap_gb * 1.05])
+
+    where += ")"
+
+    sql = "SELECT component_id, category, brand, model FROM components WHERE " + where
 
     if category:
         sql += " AND category = ?"
