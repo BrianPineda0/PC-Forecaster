@@ -82,6 +82,19 @@
   </main>
 </div>
 <script>
+// wrap wide tables in a horizontal-scroll container so they don't break narrow layouts
+(function() {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('table.editorial').forEach(t => {
+      if (t.parentElement && t.parentElement.classList.contains('table-scroll')) return;
+      const w = document.createElement('div');
+      w.className = 'table-scroll';
+      t.parentNode.insertBefore(w, t);
+      w.appendChild(t);
+    });
+  });
+})();
+
 // global search dropdown
 (function() {
   const root = document.querySelector('[data-search-root]');

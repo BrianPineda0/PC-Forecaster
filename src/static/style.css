@@ -1854,6 +1854,131 @@ html { scroll-behavior: smooth; }
 .cmp-picker .results-dropdown { position: relative; }
 .cmp-picker input[type="text"] { width: 100%; }
 
+/* ============ responsive tightening ============ */
+
+/* tables overflow horizontally on narrow rather than breaking layout */
+.table-scroll, table.editorial { max-width: 100%; }
+
+@media (max-width: 980px) {
+  .topnav-inner { flex-wrap: wrap; }
+  .brand-text { font-size: 16px; }
+  .topnav-search { order: 3; flex-basis: 100%; max-width: none; margin-top: 4px; }
+
+  .hero { padding: 26px 22px 22px; }
+  .hero-title { font-size: 34px; }
+  .hero-lede { font-size: 14.5px; }
+
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+  .footer-brand { grid-column: 1 / -1; }
+
+  .recommend { padding: 20px 22px; }
+  .recommend-detail { grid-template-columns: 1fr 1fr; gap: 14px; }
+  .recommend .verdict { font-size: 24px; }
+
+  .cd-header { padding: 22px 20px; }
+  .cd-title { font-size: 28px; }
+
+  .viz-grid { grid-template-columns: 1fr; }
+  .viz-chart-wrap { height: 240px; }
+
+  .col-2 { gap: 24px; }
+
+  .preset-row { padding: 12px 14px; }
+  .preset-row .preset-label { width: 100%; margin-bottom: 4px; }
+
+  main.content { padding: 22px 18px 56px; }
+}
+
+@media (max-width: 720px) {
+  h1.page-title { font-size: 30px; }
+  .page-lede { font-size: 14px; margin-bottom: 24px; }
+  h2.section-head { font-size: 16px; margin: 28px 0 12px; }
+
+  .hero { padding: 22px 18px 20px; border-radius: 10px; }
+  .hero-title { font-size: 28px; line-height: 1.1; }
+  .hero-cta { gap: 10px; }
+  .btn-hero { padding: 11px 18px; font-size: 12px; }
+  .hero-stat-value { font-size: 22px; }
+
+  .statbar { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .statbar .stat { padding: 12px 14px; }
+  .statbar .value { font-size: 22px; }
+
+  .featured-grid { grid-template-columns: 1fr; }
+
+  .deals-tabs { width: auto; overflow-x: auto; flex-wrap: nowrap; }
+  .deals-tabs a { padding: 7px 12px; font-size: 11.5px; white-space: nowrap; }
+  .deals-grid { grid-template-columns: 1fr; }
+
+  .recommend-detail { grid-template-columns: 1fr; }
+
+  .cd-header { padding: 20px 18px; }
+  .cd-title-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .cd-title { font-size: 24px; }
+  .spec-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .spec-grid .spec-value { font-size: 16px; }
+
+  table.editorial { font-size: 12.5px; }
+  table.editorial th, table.editorial td { padding: 9px 10px; }
+  table.editorial td.num, table.editorial th.num { font-size: 12px; }
+
+  .chart-wrap { padding: 10px; height: 260px; }
+  .chart-wrap.tall { height: 320px; }
+
+  .pipeline-list li { grid-template-columns: 40px 1fr; padding: 14px 16px; }
+  .pipeline-list .stage-name { display: none; }
+  .pipeline-list .stage-num { font-size: 22px; }
+  .pipeline-list .stage-desc { font-size: 13px; }
+
+  .build-grid, .compare-pickers { grid-template-columns: 1fr; gap: 12px; }
+
+  .footer-grid { grid-template-columns: 1fr; gap: 18px; }
+  .footer-bottom { flex-direction: column; gap: 8px; }
+}
+
+@media (max-width: 480px) {
+  main.content { padding: 18px 14px 44px; }
+  .topnav-inner { padding: 10px 14px; gap: 10px; }
+
+  .hero-title { font-size: 24px; }
+  .hero-lede { font-size: 13.5px; }
+  .hero-cta { flex-direction: column; align-items: stretch; }
+  .btn-hero { text-align: center; }
+
+  .statbar { grid-template-columns: 1fr 1fr; }
+  .statbar .label { font-size: 9.5px; }
+  .statbar .value { font-size: 20px; }
+
+  .deal-card { padding: 14px 16px; }
+  .deal-model { font-size: 15.5px; }
+  .deal-price { font-size: 19px; }
+
+  .save-btn.floating { width: 28px; height: 28px; bottom: 10px; right: 10px; }
+  .deal-card .deal-foot { padding-right: 34px; }
+
+  .preset-btn { padding: 7px 12px; font-size: 11.5px; }
+
+  .results-list .opt { padding: 9px 12px; }
+  .gr-item { grid-template-columns: 48px 1fr; padding: 9px 12px; }
+}
+
+/* horizontal overflow handling — wrap wide tables in scrollers, page itself never scrolls sideways */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0 0 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll table.editorial {
+  margin-bottom: 0;
+  min-width: 100%;
+  width: auto;
+}
+
+body { overflow-x: hidden; }
+.page, main.content { min-width: 0; }
+
 /* scrollbars to match dark theme */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
