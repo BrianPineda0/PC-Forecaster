@@ -26,7 +26,7 @@
   <p class="results-count">
     {{ results|length }} result{{ '' if results|length == 1 else 's' }}{% if results|length == 200 %} &mdash; limit reached, narrow the query for more{% endif %}
   </p>
-  <div class="results-list">
+  <div class="results-panel">
   {% for r in results %}
     <a href="{{ url_for('component_detail', component_id=r.component_id) }}" class="result-row" style="display:grid">
       <span class="cat-slot {{ r.category|lower }}">{{ r.category }}</span>

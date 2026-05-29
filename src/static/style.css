@@ -562,7 +562,7 @@ button.btn.danger:hover { background: var(--bad); color: #1a0606; filter: none; 
   margin: 20px 0 12px;
 }
 
-.results-list {
+.results-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
