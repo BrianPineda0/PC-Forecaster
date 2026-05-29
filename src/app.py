@@ -6,9 +6,6 @@ import numpy as np
 import pandas as pd
 from flask import Flask, render_template, request, jsonify, send_from_directory, abort, redirect, url_for
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import NearestNeighbors
-
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 db_path = os.path.join(root, "pcparts.db")
@@ -502,6 +499,9 @@ def component_detail(component_id):
         cat_df = cat_df.dropna(subset=feats).reset_index(drop=True)
 
         if len(cat_df) >= 6 and component_id in cat_df["component_id"].values:
+
+            from sklearn.preprocessing import StandardScaler
+            from sklearn.neighbors import NearestNeighbors
 
             X = StandardScaler().fit_transform(cat_df[feats].values)
             k = min(6, len(cat_df))
