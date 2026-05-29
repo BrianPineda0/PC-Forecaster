@@ -1,1 +1,1 @@
-web: gunicorn --chdir src --workers 2 --timeout 60 app:app
+web: gunicorn --chdir src --workers 1 --timeout 60 app:app
