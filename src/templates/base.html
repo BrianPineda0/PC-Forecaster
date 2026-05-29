@@ -133,7 +133,11 @@
     const opts = list.querySelectorAll('.gr-item');
     if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % opts.length; opts.forEach((o, i) => o.classList.toggle('hi', i === active)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + opts.length) % opts.length; opts.forEach((o, i) => o.classList.toggle('hi', i === active)); }
-    else if (e.key === 'Enter' && active >= 0 && items[active]) { e.preventDefault(); go(items[active].component_id); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active >= 0 && items[active]) { go(items[active].component_id); }
+      else if (input.value.trim()) { window.location = '/components?q=' + encodeURIComponent(input.value.trim()); }
+    }
     else if (e.key === 'Escape') { input.blur(); close(); }
   });
   document.addEventListener('click', e => { if (!root.contains(e.target)) close(); });
