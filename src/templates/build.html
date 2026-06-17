@@ -55,6 +55,11 @@
     <div class="stat"><div class="label">% off priciest</div><div class="value" id="savingsPct">—</div></div>
   </div>
 
+  <h2 class="section-head">Smart Purchase Schedule</h2>
+  <p class="body-note">Each part bottoms out in a different month. Buying each at its own trough beats buying everything at once.</p>
+  <div id="schedule" class="sched"></div>
+  <div class="sched-total" id="schedTotal"></div>
+
   <div class="chart-wrap tall"><canvas id="buildChart"></canvas></div>
   <p class="chart-caption">Monthly total stacked by category, across the 12-month forecast horizon.</p>
 
@@ -223,9 +228,31 @@ function renderResult(data) {
     </tr>`
   ).join('');
 
+  const colors = { GPU: '#f472b6', CPU: '#60a5fa', RAM: '#34d399', Storage: '#fbbf24' };
+  const sched = document.getElementById('schedule');
+  if (data.schedule && data.schedule.length) {
+    sched.innerHTML = data.schedule.map(s => {
+      const pos = Math.min(90, s.horizon > 1 ? (s.months_out / (s.horizon - 1) * 100) : 0);
+      const lab = s.buy_month.split(' ')[0];
+      return `<div class="srow">
+        <span class="swho"><span class="cat-name ${s.category.toLowerCase()}">${s.category}</span> <span class="smodel">${s.model || ''}</span></span>
+        <div class="strack"><div class="sseg" style="left:${pos}%;background:${colors[s.category] || '#888'}">${lab}</div></div>
+        <span class="ssave">${s.saved > 0 ? '−$' + s.saved.toFixed(0) : 'buy now'}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('schedTotal').innerHTML =
+      `Stagger total <strong>$${data.staggered_total.toFixed(0)}</strong> &nbsp;vs all-at-once <strong>$${data.buy_now_total.toFixed(0)}</strong> &nbsp;&middot;&nbsp; <strong class="sched-save">save $${data.stagger_savings.toFixed(0)}</strong>`;
+  } else {
+    sched.innerHTML = '';
+    document.getElementById('schedTotal').innerHTML = '';
+  }
+
   if (chart) chart.destroy();
   const cats = Object.keys(data.used);
-  const colors = { GPU: '#f472b6', CPU: '#60a5fa', RAM: '#34d399', Storage: '#fbbf24' };
+  const css = getComputedStyle(document.documentElement);
+  const cvv = (n, fb) => css.getPropertyValue(n).trim() || fb;
+  const ink = cvv('--ink', '#e6ecf5'), muted = cvv('--muted', '#7a8699'),
+        gridc = cvv('--rule', '#28324a'), panelc = cvv('--bg', '#0b0e14'), borderc = cvv('--border', '#28324a');
   const datasets = cats.map(c => ({
     label: c,
     data: data.rows.map(r => ({ x: r.month, y: r[c] || 0 })),
@@ -242,12 +269,12 @@ function renderResult(data) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#e6ecf5', font: { family: 'Inter, system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
-        tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: '#e6ecf5', bodyColor: '#e6ecf5', titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
+        legend: { labels: { color: ink, font: { family: 'Inter, system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
+        tooltip: { backgroundColor: panelc, borderColor: borderc, borderWidth: 1, titleColor: ink, bodyColor: ink, titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
       },
       scales: {
-        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, stacked: true, ticks: { color: '#7a8699', font: { family: 'Inter, system-ui', size: 11 }, maxRotation: 0 }, grid: { display: false } },
-        y: { stacked: true, ticks: { color: '#7a8699', font: { family: 'JetBrains Mono, ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: 'rgba(40,50,74,0.5)', drawTicks: false } }
+        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } }, stacked: true, ticks: { color: muted, font: { family: 'Inter, system-ui', size: 11 }, maxRotation: 0 }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: muted, font: { family: 'JetBrains Mono, ui-monospace', size: 11 }, callback: v => '$' + v }, grid: { color: gridc, drawTicks: false } }
       }
     }
   });

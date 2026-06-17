@@ -46,6 +46,7 @@
       </div>
       {% endif %}
     </div>
+    {% if r.spark %}<svg class="deal-spark" viewBox="0 0 120 30" preserveAspectRatio="none" data-spark="{{ r.spark|join(',') }}" aria-hidden="true"></svg>{% endif %}
     {% if r.pct_above_hist is not none %}
     <div class="deal-foot">
       {% if r.pct_above_hist <= 2 %}
@@ -89,6 +90,7 @@
         <div class="deal-price accent">${{ "%.0f"|format(r.cheapest) }}</div>
       </div>
     </div>
+    {% if r.spark %}<svg class="deal-spark" viewBox="0 0 120 30" preserveAspectRatio="none" data-spark="{{ r.spark|join(',') }}" aria-hidden="true"></svg>{% endif %}
     <div class="deal-foot">
       Save <strong>${{ "%.0f"|format(r.savings) }}</strong>
       &middot; {{ "%.1f"|format(r.pct_savings) }}%
@@ -107,4 +109,35 @@
 </p>
 
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// D - draw the forecast sparkline on each deal card
+(function() {
+  const css = getComputedStyle(document.documentElement);
+  const accent = (css.getPropertyValue('--accent').trim() || '#5eead4');
+  const bad = (css.getPropertyValue('--bad').trim() || '#f87171');
+  const muted = (css.getPropertyValue('--muted').trim() || '#7a8699');
+  document.querySelectorAll('.deal-spark[data-spark]').forEach(svg => {
+    const vals = svg.dataset.spark.split(',').map(Number).filter(v => !isNaN(v));
+    if (vals.length < 2) return;
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+    const pts = vals.map((v, i) => {
+      const x = (i / (vals.length - 1)) * 120;
+      const y = 28 - ((v - lo) / span) * 26;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    const falling = vals[vals.length - 1] < vals[0];
+    const color = falling ? accent : (vals[vals.length - 1] > vals[0] ? bad : muted);
+    const pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    pl.setAttribute('points', pts);
+    pl.setAttribute('fill', 'none');
+    pl.setAttribute('stroke', color);
+    pl.setAttribute('stroke-width', '2');
+    pl.setAttribute('vector-effect', 'non-scaling-stroke');
+    svg.appendChild(pl);
+  });
+})();
+</script>
 {% endblock %}

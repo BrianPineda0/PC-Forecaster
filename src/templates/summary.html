@@ -50,6 +50,12 @@
 <p class="body-note" style="margin-top:-6px"><a href="{{ url_for('deals') }}">See all picks for this month &rarr;</a></p>
 {% endif %}
 
+{% if heatmap %}
+<h2 class="section-head">Cheapest month by category</h2>
+<p class="body-note">Relative forecast price over the next 12 months &mdash; greener is cheaper within each category. &#9733; marks the projected cheapest month.</p>
+<div class="heatmap" data-heatmap='{{ heatmap|tojson }}'></div>
+{% endif %}
+
 <h2 class="section-head">Pipeline scale</h2>
 <div class="statbar">
   <div class="stat"><div class="label">Components</div><div class="value">{{ "{:,}".format(counts.components) }}</div></div>
@@ -139,4 +145,31 @@
   </tbody>
 </table>
 <p class="body-note">The naive baseline (just <span class="mono">expected_price</span>) sits within a dollar of the best ML model. Most of the R² comes from the linear trend, not from learning.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// F - render the best-month heatmap
+(function() {
+  const el = document.querySelector('.heatmap[data-heatmap]');
+  if (!el) return;
+  const data = JSON.parse(el.dataset.heatmap);
+  function color(x) {
+    let r, g, b;
+    if (x < 0.5) { r = 240; g = Math.round(97 + (179 - 97) * (x / 0.5)); b = Math.round(113 + (36 - 113) * (x / 0.5)); }
+    else { r = Math.round(227 - (227 - 74) * ((x - 0.5) / 0.5)); g = Math.round(179 + (222 - 179) * ((x - 0.5) / 0.5)); b = Math.round(36 + (128 - 36) * ((x - 0.5) / 0.5)); }
+    return `rgb(${r},${g},${b})`;
+  }
+  let html = '<table class="heat-table"><thead><tr><th></th>' + data.months.map(m => `<th>${m}</th>`).join('') + '</tr></thead><tbody>';
+  data.rows.forEach(row => {
+    html += `<tr><td class="heat-lab">${row.category}</td>` + row.cheapness.map((c, i) => {
+      const v = (c === null) ? 0.5 : c;
+      const star = (i === row.best_index) ? '★' : '';
+      return `<td class="heat-cell" style="background:${color(v)}">${star}</td>`;
+    }).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+})();
+</script>
 {% endblock %}

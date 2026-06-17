@@ -288,6 +288,7 @@ def summary():
 
     # featured top picks - reuse the same logic the deals page uses
     featured = []
+    heatmap = None
 
     if os.path.exists(forecast_path):
 
@@ -352,13 +353,45 @@ def summary():
 
             featured = picks_per_cat
 
+            months_periods = sorted(fc_all["forecast_month"].dt.to_period("M").unique())[:12]
+            month_labels = [mp.strftime("%b") for mp in months_periods]
+            heat_rows = []
+
+            for cat in ["GPU", "CPU", "RAM", "Storage"]:
+
+                sub_h = fc_all[fc_all["category"] == cat]
+
+                if sub_h.empty:
+                    continue
+
+                means = []
+
+                for mp in months_periods:
+                    mv = sub_h[sub_h["forecast_month"].dt.to_period("M") == mp]["predicted_price"].mean()
+                    means.append(float(mv) if pd.notna(mv) else None)
+
+                valid = [v for v in means if v is not None]
+
+                if len(valid) < 2:
+                    continue
+
+                lo, hi = min(valid), max(valid)
+                span = (hi - lo) or 1.0
+                cheap = [round((hi - v) / span, 3) if v is not None else None for v in means]
+                best_index = min(range(len(means)), key=lambda i: means[i] if means[i] is not None else float("inf"))
+                heat_rows.append({"category": cat, "cheapness": cheap, "best_index": best_index})
+
+            if heat_rows:
+                heatmap = {"months": month_labels, "rows": heat_rows}
+
     return render_template("summary.html",
                            counts=counts,
                            by_cat=by_cat_rows,
                            regression=reg,
                            classification=cls_rf,
                            real_backtest=real_backtest,
-                           featured=featured)
+                           featured=featured,
+                           heatmap=heatmap)
 
 
 # component browser - search bar + result table - replaces cli option 2 entry
@@ -1174,6 +1207,7 @@ def deals():
             "months_to_cheapest": months_to_cheapest,
             "savings": savings,
             "pct_savings": pct,
+            "spark": [round(float(p), 2) for p in sub["predicted_price"].tolist()],
         })
 
     df = pd.DataFrame(rows)
@@ -1216,6 +1250,7 @@ def deals():
             "pct_savings": float(r["pct_savings"]),
             "hist_min": float(r["hist_min"]) if pd.notna(r["hist_min"]) else None,
             "pct_above_hist": float(r["pct_above_hist"]) if pd.notna(r["pct_above_hist"]) else None,
+            "spark": list(r["spark"]) if isinstance(r["spark"], (list, tuple, np.ndarray)) else [],
         } for _, r in d.iterrows()]
 
     return render_template("deals.html",
@@ -1535,6 +1570,35 @@ def api_build():
     savings = totals[priciest_i] - totals[cheapest_i]
     pct = (savings / totals[priciest_i] * 100) if totals[priciest_i] > 0 else 0.0
 
+    schedule = []
+    buy_now_total = 0.0
+    staggered_total = 0.0
+    sorted_months = sorted(monthly.keys())
+
+    for cat in used.keys():
+
+        series = [(d, monthly[d][cat]) for d in sorted_months if cat in monthly[d]]
+
+        if not series:
+            continue
+
+        now_price = series[0][1]
+        best_idx = min(range(len(series)), key=lambda i: series[i][1])
+        best_d, best_p = series[best_idx]
+        buy_now_total += now_price
+        staggered_total += best_p
+
+        schedule.append({
+            "category": cat,
+            "model": used[cat]["model"],
+            "buy_month": pd.Timestamp(best_d).strftime("%b %Y"),
+            "months_out": best_idx,
+            "horizon": len(series),
+            "price": round(best_p, 2),
+            "now_price": round(now_price, 2),
+            "saved": round(now_price - best_p, 2),
+        })
+
     return jsonify({
         "rows": rows,
         "used": used,
@@ -1542,6 +1606,10 @@ def api_build():
         "priciest": rows[priciest_i],
         "savings": round(savings, 2),
         "pct_savings": round(pct, 1),
+        "schedule": schedule,
+        "buy_now_total": round(buy_now_total, 2),
+        "staggered_total": round(staggered_total, 2),
+        "stagger_savings": round(buy_now_total - staggered_total, 2),
     })
 
 

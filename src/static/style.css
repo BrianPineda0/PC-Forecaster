@@ -2097,6 +2097,28 @@ body { overflow-x: hidden; }
 .tw-out.hit strong { color: var(--good); }
 .tw-out.miss { background: var(--warn-bg); border-color: var(--warn); }
 
+/* ---- D: deal sparkline ---- */
+.deal-spark { width: 100%; height: 30px; margin: 4px 0 2px; display: block; }
+
+/* ---- F: best-month heatmap ---- */
+.heatmap { overflow-x: auto; margin-bottom: 24px; }
+.heat-table { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 560px; }
+.heat-table th { font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 500; padding: 2px; }
+.heat-table td.heat-lab { text-align: right; padding-right: 10px; font-family: var(--display); font-weight: 600; font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+.heat-cell { height: 30px; border-radius: 5px; text-align: center; font-family: var(--mono); font-size: 11px; color: rgba(8, 12, 10, 0.72); min-width: 38px; }
+
+/* ---- E: smart purchase schedule ---- */
+.sched { display: flex; flex-direction: column; gap: 12px; margin-bottom: 4px; }
+.srow { display: grid; grid-template-columns: minmax(120px, 200px) 1fr 80px; align-items: center; gap: 14px; }
+.swho { font-size: 13.5px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.swho .smodel { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strack { position: relative; height: 28px; background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+.sseg { position: absolute; top: 3px; bottom: 3px; min-width: 42px; padding: 0 6px; border-radius: 5px; display: grid; place-items: center; font-family: var(--mono); font-size: 11px; font-weight: 600; color: #06121a; }
+.ssave { font-family: var(--mono); font-size: 13px; color: var(--good); text-align: right; }
+.sched-total { margin: 14px 0 8px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-soft); }
+.sched-total strong { color: var(--ink); }
+.sched-total .sched-save { color: var(--good); }
+
 /* ---- responsive safety nets ---- */
 img, canvas, svg, video { max-width: 100%; }
 @media (max-width: 680px) {
@@ -2105,4 +2127,6 @@ img, canvas, svg, video { max-width: 100%; }
   .bs-word { font-size: 22px; }
   .tw-input { width: 100%; }
   .tw-out { min-width: 0; flex-basis: 100%; }
+  .srow { grid-template-columns: 1fr; gap: 6px; }
+  .ssave { text-align: left; }
 }
