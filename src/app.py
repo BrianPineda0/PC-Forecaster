@@ -393,6 +393,31 @@ def api_search():
     return jsonify(matches.to_dict("records"))
 
 
+# band half-width comes from the category's out-of-time backtest MAPE, widening with horizon
+
+def category_band_pct(category):
+
+    fname = {"GPU": "real_gpu_backtest_metrics.csv",
+             "Storage": "real_storage_backtest_metrics.csv",
+             "RAM": "real_ram_backtest_metrics.csv"}.get(category)
+
+    if not fname:
+        return 0.18
+
+    path = os.path.join(cleaned_dir, fname)
+
+    if not os.path.exists(path):
+        return 0.18
+
+    m = pd.read_csv(path)
+    rf = m[m["model"] == "Random Forest"]
+
+    if rf.empty:
+        return 0.18
+
+    return float(rf.iloc[0]["MAPE_pct"]) / 100.0
+
+
 # one component detail page - combines cli options 2, 3, 4, 12
 
 @app.route("/components/<path:component_id>")
@@ -444,10 +469,16 @@ def component_detail(component_id):
     if not fc.empty:
         fc = fc.copy()
         fc["price"] = fc["price"] * mult
-        forecast_series = [
-            {"date": d.strftime("%Y-%m-%d"), "price": float(p)}
-            for d, p in zip(fc["date"], fc["price"])
-        ]
+        band_pct = category_band_pct(row["category"])
+        n_fc = len(fc)
+        for i, (d, p) in enumerate(zip(fc["date"], fc["price"]), start=1):
+            hw = band_pct * (i / n_fc) ** 0.5
+            forecast_series.append({
+                "date": d.strftime("%Y-%m-%d"),
+                "price": float(p),
+                "lower": float(p * (1 - hw)),
+                "upper": float(p * (1 + hw)),
+            })
 
     # recommendation
 
@@ -499,6 +530,13 @@ def component_detail(component_id):
             verdict_text = "BUY NOW"
             verdict_reason = f"projected savings of {pct:.1f}% are too small to justify waiting."
 
+        deal_score = None
+        if not syn.empty:
+            window = (syn["synthetic_price"] * mult).tolist()[-12:]
+            if window:
+                pricier = sum(1 for hp in window if hp > float(current["price"]))
+                deal_score = round(100 * pricier / len(window))
+
         recommendation = {
             "verdict": verdict,
             "verdict_text": verdict_text,
@@ -511,6 +549,8 @@ def component_detail(component_id):
             "priciest_price": float(priciest["price"]),
             "savings": savings,
             "pct_savings": pct,
+            "months_to_cheapest": int(months_to_cheapest),
+            "deal_score": deal_score,
             "hist_min": hist_min,
             "hist_context": hist_context,
         }

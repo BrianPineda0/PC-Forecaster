@@ -2032,3 +2032,77 @@ body { overflow-x: hidden; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--rule); }
+
+/* ---- Buy Signal hero (A) ---- */
+.buy-signal {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) 1fr;
+  gap: 24px;
+  align-items: stretch;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 24px;
+}
+.bs-verdict {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.bs-vlabel { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.bs-word { font-family: var(--display); font-size: 25px; font-weight: 700; line-height: 1.12; margin: 4px 0 6px; }
+.bs-reason { margin: 0; color: var(--ink-soft); font-size: 13px; }
+.buy-signal.wait .bs-verdict { background: var(--warn-bg); border-color: var(--warn); }
+.buy-signal.wait .bs-word { color: var(--warn); }
+.buy-signal.buy .bs-verdict { background: var(--good-bg); border-color: var(--good); }
+.buy-signal.buy .bs-word { color: var(--good); }
+.buy-signal.marginal .bs-verdict { background: var(--marginal-bg); border-color: var(--marginal); }
+.buy-signal.marginal .bs-word { color: var(--marginal); }
+.bs-headline { font-size: 17px; color: var(--ink); }
+.bs-headline strong { color: var(--good); }
+.bs-stats { display: flex; flex-wrap: wrap; gap: 26px; margin: 16px 0; }
+.bs-n { font-family: var(--mono); font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bs-of { font-size: 12px; color: var(--muted); }
+.bs-l { font-size: 12px; color: var(--muted); }
+.bs-score.hi { color: var(--good); }
+.bs-score.mid { color: var(--warn); }
+.bs-score.lo { color: var(--bad); }
+.bs-bar { position: relative; height: 6px; border-radius: 999px; background: var(--panel-hi); margin-top: 6px; }
+.bs-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(90deg, var(--brand-1), var(--brand-2)); }
+.bs-bar-pin { position: absolute; top: -4px; width: 14px; height: 14px; border-radius: 50%; background: var(--good); border: 3px solid var(--panel); transform: translateX(-50%); }
+.bs-bar-labels { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 7px; gap: 8px; }
+.bs-hist { margin: 14px 0 0; color: var(--ink-soft); font-size: 13px; }
+
+/* ---- Target price watch (C) ---- */
+.target-watch { margin-top: 8px; }
+.tw-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tw-prefix { font-family: var(--mono); color: var(--muted); }
+.tw-input {
+  width: 130px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: var(--mono);
+  padding: 9px 12px;
+  font-size: 14px;
+}
+.tw-input:focus { outline: none; border-color: var(--accent); }
+.tw-out { flex: 1; min-width: 240px; color: var(--ink-soft); font-size: 14px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--panel-2); border: 1px solid var(--border-soft); }
+.tw-out.hit { background: var(--good-bg); border-color: var(--good); }
+.tw-out.hit strong { color: var(--good); }
+.tw-out.miss { background: var(--warn-bg); border-color: var(--warn); }
+
+/* ---- responsive safety nets ---- */
+img, canvas, svg, video { max-width: 100%; }
+@media (max-width: 680px) {
+  .buy-signal { grid-template-columns: 1fr; padding: 18px; }
+  .bs-stats { gap: 16px 24px; }
+  .bs-word { font-size: 22px; }
+  .tw-input { width: 100%; }
+  .tw-out { min-width: 0; flex-basis: 100%; }
+}

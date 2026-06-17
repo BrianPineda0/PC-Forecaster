@@ -47,35 +47,57 @@
 {% endif %}
 
 {% if recommendation %}
-<h2 class="section-head">Recommendation</h2>
-<div class="recommend {{ recommendation.verdict }}">
-  <div class="verdict-label">Verdict</div>
-  <div class="verdict">{{ recommendation.verdict_text }}</div>
-  <div class="reason">{{ recommendation.verdict_reason }}</div>
-  <div class="recommend-detail">
-    <div>
-      <div class="rd-label">Right now &mdash; {{ recommendation.current_date }}</div>
-      <div class="rd-value">${{ "%.2f"|format(recommendation.current_price) }}</div>
-    </div>
-    <div>
-      <div class="rd-label">Cheapest forecast month</div>
-      <div class="rd-value">${{ "%.2f"|format(recommendation.cheapest_price) }}</div>
-      <div class="rd-sub">{{ recommendation.cheapest_date }}</div>
-    </div>
-    <div>
-      <div class="rd-label">Potential savings</div>
-      <div class="rd-value verdict-amount">${{ "%.2f"|format(recommendation.savings) }}</div>
-      <div class="rd-sub">{{ "%.1f"|format(recommendation.pct_savings) }}% off current</div>
-    </div>
+<h2 class="section-head">Buy Signal</h2>
+<div class="buy-signal {{ recommendation.verdict }}">
+  <div class="bs-verdict">
+    <div class="bs-vlabel">Verdict</div>
+    <div class="bs-word">{{ recommendation.verdict_text }}</div>
+    <p class="bs-reason">{{ recommendation.verdict_reason }}</p>
   </div>
-  {% if recommendation.hist_context %}<p class="hist-note">{{ recommendation.hist_context }}</p>{% endif %}
+  <div class="bs-body">
+    <div class="bs-headline">
+      {% if recommendation.pct_savings >= 3 %}
+        Projected to drop <strong>${{ "%.0f"|format(recommendation.savings) }} ({{ "%.0f"|format(recommendation.pct_savings) }}%)</strong> by {{ recommendation.cheapest_date }}
+      {% else %}
+        Near its projected floor &mdash; little to gain by waiting.
+      {% endif %}
+    </div>
+    <div class="bs-stats">
+      <div class="bs-stat"><div class="bs-n">${{ "%.0f"|format(recommendation.current_price) }}</div><div class="bs-l">today</div></div>
+      <div class="bs-stat"><div class="bs-n">${{ "%.0f"|format(recommendation.cheapest_price) }}</div><div class="bs-l">forecast trough</div></div>
+      <div class="bs-stat"><div class="bs-n">{{ recommendation.cheapest_date }}</div><div class="bs-l">cheapest month</div></div>
+      {% if recommendation.deal_score is not none %}
+      <div class="bs-stat" title="Deal score (0-100): how today's price ranks against this part's own last 12 months. Higher = cheaper than usual.">
+        <div class="bs-n bs-score {{ 'hi' if recommendation.deal_score >= 66 else 'mid' if recommendation.deal_score >= 33 else 'lo' }}">{{ recommendation.deal_score }}<span class="bs-of">/100</span></div>
+        <div class="bs-l">deal score &#9432;</div>
+      </div>
+      {% endif %}
+    </div>
+    {% if recommendation.months_to_cheapest is not none %}
+    {% set pinpos = (recommendation.months_to_cheapest / 12 * 100) %}
+    <div class="bs-bar"><div class="bs-bar-fill" style="width:{{ pinpos|round(0,'common')|int }}%"></div><div class="bs-bar-pin" style="left:{{ pinpos|round(0,'common')|int }}%"></div></div>
+    <div class="bs-bar-labels"><span>today</span><span>best buy &middot; {{ recommendation.cheapest_date }}</span><span>+12mo</span></div>
+    {% endif %}
+    {% if recommendation.hist_context %}<p class="bs-hist">{{ recommendation.hist_context }}</p>{% endif %}
+  </div>
 </div>
 {% endif %}
 
 {% if has_prediction %}
 <h2 class="section-head">Price History &amp; Forecast</h2>
 <div class="chart-wrap tall"><canvas id="priceChart"></canvas></div>
-<p class="chart-caption">Synthetic series (line) &middot; real-blended observations (dots) &middot; 12-month forecast (dashed){% if calibration.multiplier != 1.0 %}, scaled by your calibration multiplier{% endif %}.</p>
+<p class="chart-caption">Synthetic series (line) &middot; real-blended observations (dots) &middot; 12-month forecast (dashed) with a confidence band from the category's backtest error{% if calibration.multiplier != 1.0 %}, scaled by your calibration multiplier{% endif %}.</p>
+{% if forecast_series %}
+<div class="target-watch">
+  <h2 class="section-head">Target Price Watch</h2>
+  <p class="body-note">Set a price and the forecast tells you the month it's projected to reach it.</p>
+  <div class="tw-row">
+    <span class="tw-prefix">$</span>
+    <input type="number" step="1" min="0" class="tw-input" data-target-input placeholder="your target" aria-label="Target price">
+    <div class="tw-out" data-target-out>Enter a target to see when the forecast hits it.</div>
+  </div>
+</div>
+{% endif %}
 {% endif %}
 
 <div class="col-2">
@@ -150,21 +172,29 @@
 const history = {{ history_series|tojson }};
 const forecast = {{ forecast_series|tojson }};
 
+const css = getComputedStyle(document.documentElement);
+const cv = (n, fb) => (css.getPropertyValue(n).trim() || fb);
+const ink = cv('--ink', '#e6ecf5');
+const muted = cv('--muted', '#7a8699');
+const grid = cv('--rule', '#28324a');
+const panelBg = cv('--bg', '#0b0e14');
+const border = cv('--border', '#28324a');
+const histColor = cv('--cpu', '#60a5fa');
+const realColor = cv('--brand-1', '#5eead4');
+const fcColor = cv('--warn', '#fbbf24');
+
 const histSynth = history.filter(h => h.source === 'synthetic').map(h => ({x: h.date, y: h.price}));
 const histReal  = history.filter(h => h.source === 'real_blended').map(h => ({x: h.date, y: h.price}));
 const fcPoints  = forecast.map(f => ({x: f.date, y: f.price}));
-
-const ink = '#e6ecf5';
-const muted = '#7a8699';
-const grid = 'rgba(40,50,74,0.5)';
-const histColor = '#60a5fa';
-const realColor = '#5eead4';
-const fcColor = '#fbbf24';
+const fcUpper   = forecast.map(f => ({x: f.date, y: f.upper}));
+const fcLower   = forecast.map(f => ({x: f.date, y: f.lower}));
 
 new Chart(document.getElementById('priceChart'), {
   type: 'line',
   data: {
     datasets: [
+      { label: '_upper', data: fcUpper, borderColor: 'transparent', pointRadius: 0, fill: false, tension: 0.2 },
+      { label: 'Forecast range', data: fcLower, borderColor: 'transparent', backgroundColor: 'rgba(94,234,212,0.13)', pointRadius: 0, fill: '-1', tension: 0.2 },
       { label: 'Synthetic series', data: histSynth, borderColor: histColor, backgroundColor: 'transparent', tension: 0.18, pointRadius: 0, borderWidth: 2 },
       { label: 'Real-blended', data: histReal, borderColor: realColor, backgroundColor: realColor, pointRadius: 4, pointBorderWidth: 0, showLine: false },
       { label: '12-month forecast', data: fcPoints, borderColor: fcColor, backgroundColor: 'transparent', borderDash: [5, 4], tension: 0.2, pointRadius: 0, borderWidth: 2 },
@@ -174,8 +204,8 @@ new Chart(document.getElementById('priceChart'), {
     responsive: true, maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { labels: { color: ink, font: { family: 'Inter, system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18 }, position: 'bottom' },
-      tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: ink, bodyColor: ink, titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' }, callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
+      legend: { labels: { color: ink, font: { family: 'Inter, system-ui', size: 12 }, usePointStyle: true, boxWidth: 12, padding: 18, filter: i => i.text && i.text[0] !== '_' }, position: 'bottom' },
+      tooltip: { backgroundColor: panelBg, borderColor: border, borderWidth: 1, titleColor: ink, bodyColor: ink, titleFont: { family: 'Inter, system-ui' }, bodyFont: { family: 'JetBrains Mono, ui-monospace' }, filter: c => c.dataset.label[0] !== '_', callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(2)}` } }
     },
     scales: {
       x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yyyy' } }, ticks: { color: muted, font: { family: 'Inter, system-ui', size: 11 }, maxRotation: 0 }, grid: { color: grid, drawTicks: false } },
@@ -183,17 +213,47 @@ new Chart(document.getElementById('priceChart'), {
     }
   }
 });
+
+// C - predictive target watch, uses the forecast already on the page
+(function() {
+  const root = document.querySelector('.target-watch');
+  if (!root) return;
+  const input = root.querySelector('[data-target-input]');
+  const out = root.querySelector('[data-target-out]');
+  const fc = forecast.map(f => ({ date: f.date, price: f.price }));
+  if (!fc.length) return;
+  const trough = Math.min.apply(null, fc.map(f => f.price));
+  const fmt = d => new Date(d + 'T00:00:00').toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  function update() {
+    const t = parseFloat(input.value);
+    if (!t || t <= 0) { out.textContent = 'Enter a target to see when the forecast hits it.'; out.className = 'tw-out'; return; }
+    const hit = fc.find(f => f.price <= t);
+    if (hit) {
+      const i = fc.indexOf(hit);
+      out.innerHTML = `Forecast reaches <strong>$${t.toFixed(0)}</strong> around <strong>${fmt(hit.date)}</strong> &mdash; about ${i + 1} month${i ? 's' : ''} out.`;
+      out.className = 'tw-out hit';
+    } else {
+      out.innerHTML = `Forecast never drops to $${t.toFixed(0)} (projected low is <strong>$${trough.toFixed(0)}</strong>).`;
+      out.className = 'tw-out miss';
+    }
+  }
+  input.addEventListener('input', update);
+})();
 </script>
 {% endif %}
 
 {% if value_rank %}
 <script>
 const valueData = {{ value_rank|tojson }};
-const ink2 = '#e6ecf5';
-const muted2 = '#7a8699';
-const grid2 = 'rgba(40,50,74,0.5)';
-const accent2 = '#5eead4';
-const neutral2 = '#60a5fa';
+const css2 = getComputedStyle(document.documentElement);
+const cv2 = (n, fb) => (css2.getPropertyValue(n).trim() || fb);
+const ink2 = cv2('--ink', '#e6ecf5');
+const muted2 = cv2('--muted', '#7a8699');
+const grid2 = cv2('--rule', '#28324a');
+const accent2 = cv2('--brand-1', '#5eead4');
+const neutral2 = cv2('--cpu', '#60a5fa');
+const panel2 = cv2('--bg', '#0b0e14');
+const border2 = cv2('--border', '#28324a');
 
 new Chart(document.getElementById('valueChart'), {
   type: 'bar',
@@ -213,7 +273,7 @@ new Chart(document.getElementById('valueChart'), {
     responsive: true, maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: '#0b0e14', borderColor: '#28324a', borderWidth: 1, titleColor: ink2, bodyColor: ink2, callbacks: { label: c => `$${c.parsed.x.toFixed(2)} ${valueData.metric_label}` } }
+      tooltip: { backgroundColor: panel2, borderColor: border2, borderWidth: 1, titleColor: ink2, bodyColor: ink2, callbacks: { label: c => `$${c.parsed.x.toFixed(2)} ${valueData.metric_label}` } }
     },
     scales: {
       x: { ticks: { color: muted2, font: { family: 'JetBrains Mono, ui-monospace', size: 10 }, callback: v => '$' + v }, grid: { color: grid2, drawTicks: false } },
