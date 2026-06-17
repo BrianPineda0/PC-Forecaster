@@ -6,7 +6,12 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "250mb",
-        "includeFiles": "{src/**,cleaned_data/**,visuals/**,pcparts.db}"
+        "includeFiles": [
+          "src/**",
+          "cleaned_data/**",
+          "visuals/**",
+          "pcparts.db"
+        ]
       }
     }
   ],
