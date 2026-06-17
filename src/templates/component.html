@@ -15,6 +15,10 @@
       <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 21s-7-4.35-7-10a4.5 4.5 0 0 1 8.5-2A4.5 4.5 0 0 1 22 11c0 5.65-10 10-10 10z"/></svg>
       <span data-save-label>Save</span>
     </button>
+    <button class="compare-btn" data-compare-btn="{{ component.component_id }}" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="15" height="15"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h12M4 12h8M4 17h14M16 4l3 3-3 3"/></svg>
+      <span data-compare-label>Compare</span>
+    </button>
   </div>
   <div class="cd-cid">{{ component.component_id }}</div>
   {% if confidence %}

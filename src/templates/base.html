@@ -86,6 +86,29 @@
     </footer>
   </main>
 </div>
+
+<div class="cmdk-overlay" data-cmdk-overlay hidden>
+  <div class="cmdk" role="dialog" aria-label="Command palette">
+    <div class="cmdk-q">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm5 11l5 5"/></svg>
+      <input type="text" placeholder="Search parts, jump to a page..." data-cmdk-input autocomplete="off" aria-label="Command palette">
+      <kbd>esc</kbd>
+    </div>
+    <div class="cmdk-results" data-cmdk-results></div>
+  </div>
+</div>
+
+<div class="compare-tray" data-compare-tray hidden>
+  <span class="ct-label">Compare</span>
+  <div class="ct-chips" data-ct-chips></div>
+  <div class="ct-actions">
+    <button class="ct-clear" type="button" data-ct-clear>Clear</button>
+    <a class="ct-go btn" data-ct-go href="#">Compare</a>
+  </div>
+</div>
+
+<div class="toast-host" data-toast-host></div>
+
 <script>
 // light/dark theme toggle - persists the choice, default dark
 (function() {
@@ -200,6 +223,106 @@ window.Saved = (function() {
     e.preventDefault();
     e.stopPropagation();
     toggle(btn.dataset.saveBtn);
+  });
+  document.addEventListener('DOMContentLoaded', render);
+  return { has, toggle, list: read, render };
+})();
+
+// J - toasts
+window.toast = function(msg, kind) {
+  const host = document.querySelector('[data-toast-host]');
+  if (!host) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind ? ' ' + kind : '');
+  el.innerHTML = '<span class="toast-dot"></span><span>' + msg + '</span>';
+  host.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 320); }, 2400);
+};
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-save-btn]');
+  if (!btn) return;
+  setTimeout(() => { window.toast(window.Saved && window.Saved.has(btn.dataset.saveBtn) ? 'Saved to your list' : 'Removed from saved'); }, 0);
+});
+
+// G - command palette (Cmd/Ctrl+K)
+(function() {
+  const overlay = document.querySelector('[data-cmdk-overlay]');
+  if (!overlay) return;
+  const input = overlay.querySelector('[data-cmdk-input]');
+  const results = overlay.querySelector('[data-cmdk-results]');
+  const pages = [['This Month','/deals'],['Components','/components'],['Compare','/compare'],['Build Planner','/build'],['Saved','/saved'],['Overview','/'],['Metrics','/metrics'],['Visuals','/visuals'],['Pipeline','/pipeline'],['Observations','/observations']];
+  let items = [], active = 0, tmr = null;
+  const open = () => { overlay.hidden = false; document.body.style.overflow = 'hidden'; input.value = ''; render(''); setTimeout(() => input.focus(), 20); };
+  const close = () => { overlay.hidden = true; document.body.style.overflow = ''; };
+  const isOpen = () => !overlay.hidden;
+  function pageHtml(q) {
+    const m = pages.filter(p => p[0].toLowerCase().includes(q.toLowerCase()));
+    return m.length ? '<div class="cmdk-group">Go to</div>' + m.map(p => `<a class="cmdk-item" href="${p[1]}"><span class="cmdk-ic">&rsaquo;</span>${p[0]}</a>`).join('') : '';
+  }
+  function render(q) { results.innerHTML = pageHtml(q) || '<div class="cmdk-empty">No matches</div>'; bind(); }
+  async function search(q) {
+    results.innerHTML = '<div class="cmdk-group">Components</div>' + '<div class="cmdk-skel skeleton"></div>'.repeat(3);
+    let comps = [];
+    try { comps = await (await fetch('/api/search?q=' + encodeURIComponent(q))).json(); } catch (e) {}
+    let html = '';
+    if (comps.length) html += '<div class="cmdk-group">Components</div>' + comps.slice(0, 7).map(d => `<a class="cmdk-item" href="/components/${encodeURIComponent(d.component_id)}"><span class="tag ${(d.category||'').toLowerCase()}">${d.category||''}</span><span class="cmdk-model">${d.model||d.component_id}</span></a>`).join('');
+    html += pageHtml(q);
+    results.innerHTML = html || '<div class="cmdk-empty">No matches</div>';
+    bind();
+  }
+  function bind() { items = Array.from(results.querySelectorAll('.cmdk-item')); active = 0; hi(); }
+  function hi() { items.forEach((it, i) => it.classList.toggle('active', i === active)); }
+  input.addEventListener('input', () => { const q = input.value.trim(); clearTimeout(tmr); if (!q) { render(''); return; } tmr = setTimeout(() => search(q), 160); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, items.length - 1); hi(); items[active] && items[active].scrollIntoView({ block: 'nearest' }); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); hi(); items[active] && items[active].scrollIntoView({ block: 'nearest' }); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (items[active]) window.location = items[active].getAttribute('href'); }
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); isOpen() ? close() : open(); }
+    else if (e.key === 'Escape' && isOpen()) close();
+  });
+})();
+
+// H - compare tray (localStorage backed)
+window.Compare = (function() {
+  const key = 'pcf.compare.v1';
+  function read() { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; } }
+  function write(a) { localStorage.setItem(key, JSON.stringify(a.slice(0, 4))); render(); }
+  function has(cid) { return read().includes(cid); }
+  function toggle(cid) {
+    const a = read(); const i = a.indexOf(cid);
+    if (i >= 0) a.splice(i, 1);
+    else { if (a.length >= 4) { window.toast && window.toast('Compare holds up to 4 parts'); return false; } a.push(cid); }
+    write(a); return a.includes(cid);
+  }
+  function render() {
+    const a = read();
+    const tray = document.querySelector('[data-compare-tray]');
+    if (tray) {
+      tray.hidden = a.length === 0;
+      tray.querySelector('[data-ct-chips]').innerHTML = a.map(c => `<span class="ct-chip">${c.split('|')[0].trim()}<span class="ct-x" data-ct-remove="${c.replace(/"/g, '&quot;')}">&times;</span></span>`).join('');
+      const go = tray.querySelector('[data-ct-go]');
+      go.href = '/compare?' + a.map(c => 'c=' + encodeURIComponent(c)).join('&');
+      go.textContent = 'Compare ' + a.length;
+    }
+    document.querySelectorAll('[data-compare-btn]').forEach(b => {
+      const on = has(b.dataset.compareBtn);
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on);
+      const lab = b.querySelector('[data-compare-label]');
+      if (lab) lab.textContent = on ? 'In compare' : 'Compare';
+    });
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-compare-btn]');
+    if (b) { e.preventDefault(); e.stopPropagation(); const added = toggle(b.dataset.compareBtn); window.toast && window.toast(added ? 'Added to compare' : 'Removed from compare'); return; }
+    const rm = e.target.closest('[data-ct-remove]');
+    if (rm) { e.preventDefault(); toggle(rm.dataset.ctRemove); return; }
+    const clr = e.target.closest('[data-ct-clear]');
+    if (clr) { e.preventDefault(); write([]); }
   });
   document.addEventListener('DOMContentLoaded', render);
   return { has, toggle, list: read, render };
