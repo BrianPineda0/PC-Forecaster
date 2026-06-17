@@ -14,6 +14,9 @@
   --rule: #28324a;
   --accent: #5eead4;
   --accent-2: #38bdf8;
+  --brand-1: #5eead4;
+  --brand-2: #38bdf8;
+  --logo-inset: #0b0e14;
   --accent-glow: rgba(94, 234, 212, 0.18);
   --highlight: rgba(56, 189, 248, 0.08);
 
@@ -37,6 +40,51 @@
   --radius: 10px;
   --radius-sm: 6px;
 }
+
+html[data-theme="light"] {
+  --bg: #eef1f6;
+  --bg-2: #e7ebf2;
+  --panel: #ffffff;
+  --panel-2: #f5f7fa;
+  --panel-hi: #eef2f7;
+  --ink: #11192a;
+  --ink-soft: #3c4862;
+  --muted: #697587;
+  --border: #d9e0ea;
+  --border-soft: #e6ebf2;
+  --rule: #dde4ed;
+  --accent: #0f9a8d;
+  --accent-2: #0284c7;
+  --accent-glow: rgba(94, 234, 212, 0.22);
+  --highlight: rgba(2, 132, 199, 0.06);
+  --good: #16a34a;
+  --good-bg: rgba(22, 163, 74, 0.09);
+  --warn: #b8860b;
+  --warn-bg: rgba(184, 134, 11, 0.10);
+  --marginal: #c2740a;
+  --marginal-bg: rgba(194, 116, 10, 0.10);
+  --bad: #dc2626;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex: none;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.theme-toggle:hover { color: var(--ink); border-color: var(--accent); }
+.theme-toggle .icon-sun { display: none; }
+html[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+html[data-theme="light"] .theme-toggle .icon-sun { display: block; }
 
 * { box-sizing: border-box; }
 
@@ -96,7 +144,7 @@ header.topnav {
   width: 22px;
   height: 22px;
   border-radius: 5px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
   box-shadow: 0 0 18px var(--accent-glow);
   position: relative;
 }
@@ -106,8 +154,8 @@ header.topnav {
   position: absolute;
   inset: 4px;
   border-radius: 3px;
-  background: var(--bg);
-  border: 1.5px solid var(--accent);
+  background: var(--logo-inset);
+  border: 1.5px solid var(--brand-1);
 }
 
 .brand-text {
