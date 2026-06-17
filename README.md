@@ -7,12 +7,16 @@ Tells you the right month to buy each part of your next build. Pulls historical 
 From the project root:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-pipeline.txt   # full deps (scikit-learn/scipy) for the pipeline
 python src/main.py    # only on first run, or to refresh forecasts
 python src/app.py
 ```
 
 Open **http://127.0.0.1:5000**.
+
+> `requirements.txt` is the slim, web-only dependency set used by the Vercel deploy
+> (Flask + pandas + numpy). The pipeline needs the full set in `requirements-pipeline.txt`.
+> See [Deploy](#deploy-vercel) below.
 
 Pages:
 
@@ -118,3 +122,23 @@ Across the nine months of real-price coverage, SSD NVMe 1TB went from about $78 
 - Flask + Jinja2 for the web app, Chart.js for interactive charts
 - pandas, numpy, matplotlib, scikit-learn for the pipeline
 - SQLite via the `sqlite3` standard module
+
+## Deploy (Vercel)
+
+The web app runs as a single Python serverless function on Vercel. `api/index.py` is the
+entrypoint, `vercel.json` wires every route to the Flask app, and the slim `requirements.txt`
+(Flask + pandas + numpy) keeps the function under Vercel's size limit. The "similar parts"
+ranking runs on plain numpy so `scikit-learn`/`scipy` are not shipped to the function.
+
+Two things to know about the serverless model:
+
+- **Reads are from the committed snapshot.** `pcparts.db`, `cleaned_data/*.csv`, and `visuals/`
+  are bundled into the function, so the deploy serves whatever the last pipeline run committed.
+  Re-run `python src/main.py` and push to refresh the forecasts.
+- **Submitted prices don't persist.** The filesystem is read-only except `/tmp`, so the app
+  copies the DB to `/tmp` and writes observations there. They live for the lifetime of a warm
+  instance and reset on cold start — same non-durable behavior the previous free host had.
+
+To deploy, import the GitHub repo at **vercel.com/new** (Framework Preset: *Other*) — no build
+settings needed, `vercel.json` covers it. `DEPLOYED=1` is set there too. Every push to `main`
+auto-deploys. Or from the project root with the CLI: `npm i -g vercel && vercel --prod`.

@@ -72,9 +72,18 @@ Some calls are domain judgements, not code style. Ask before touching:
 ## Quick start
 
 ```
-pip install -r requirements.txt
+pip install -r requirements-pipeline.txt
 python src/main.py     # only on first run, or to refresh forecasts
 python src/app.py      # http://127.0.0.1:5000
 ```
+
+`requirements-pipeline.txt` is the full set (scikit-learn/scipy included) the pipeline needs. Root `requirements.txt` is intentionally slim (Flask + pandas + numpy) — it's the Vercel function's dependency list, kept under the serverless size limit. Don't add scikit-learn back to it.
+
+## Deploy (Vercel)
+
+The web app deploys to Vercel as one Python serverless function. `api/index.py` imports the Flask `app` and routes everything through it via `vercel.json`. Two consequences of the serverless model that new work must respect:
+
+- **Read-only filesystem.** Only `/tmp` is writable. `app.py:writable_db_path` copies `pcparts.db` to `/tmp` when the `VERCEL` env var is present, so the observation-write path keeps working (non-durably, reset on cold start — same as the old free host). Any new write target must go to `/tmp` on Vercel.
+- **Size limit (~250MB unzipped).** That's why scikit-learn/scipy aren't shipped — the "similar parts" KNN in `app.py` was rewritten in plain numpy (z-score + euclidean). Don't reintroduce sklearn into the web path or the function won't build. Bundled data files are pinned in `vercel.json` `includeFiles`; add new runtime-read files there.
 
 See `README.md` for the full feature tour.

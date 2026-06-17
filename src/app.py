@@ -7,12 +7,28 @@ import numpy as np
 import pandas as pd
 from flask import Flask, render_template, request, jsonify, send_from_directory, abort, redirect, url_for
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import NearestNeighbors
-
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-db_path = os.path.join(root, "pcparts.db")
+
+
+# on vercel the bundled sqlite db is read-only, so run off a writable copy in /tmp
+# this matches the ephemeral-disk behavior the app already had on the previous free host
+
+def writable_db_path(path):
+
+    if not os.environ.get("VERCEL"):
+        return path
+
+    import shutil
+    tmp_path = "/tmp/pcparts.db"
+
+    if not os.path.exists(tmp_path):
+        shutil.copy2(path, tmp_path)
+
+    return tmp_path
+
+
+db_path = writable_db_path(os.path.join(root, "pcparts.db"))
 cleaned_dir = os.path.join(root, "cleaned_data")
 visuals_dir = os.path.join(root, "visuals")
 forecast_path = os.path.join(cleaned_dir, "future_price_predictions.csv")
@@ -527,16 +543,19 @@ def component_detail(component_id):
 
         if len(cat_df) >= 6 and component_id in cat_df["component_id"].values:
 
-            X = StandardScaler().fit_transform(cat_df[feats].values)
+            raw = cat_df[feats].values.astype(float)
+            spread = raw.std(axis=0)
+            spread[spread == 0] = 1.0
+            X = (raw - raw.mean(axis=0)) / spread
+
             k = min(6, len(cat_df))
-            nn = NearestNeighbors(n_neighbors=k)
-            nn.fit(X)
-
             target_pos = cat_df.index[cat_df["component_id"] == component_id][0]
-            distances, indices = nn.kneighbors(X[target_pos].reshape(1, -1))
+            dist_all = np.sqrt(((X - X[target_pos]) ** 2).sum(axis=1))
+            order = [p for p in np.argsort(dist_all, kind="stable") if p != target_pos][:k - 1]
 
-            for dist, pos in zip(distances[0][1:], indices[0][1:]):
+            for pos in order:
 
+                dist = dist_all[pos]
                 nbr = cat_df.iloc[pos]
                 spec_str = ", ".join(f"{f}={nbr[f]}" for f in feats if pd.notna(nbr[f]))
                 similar.append({

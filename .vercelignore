@@ -1,0 +1,11 @@
+raw_data/
+report_context.txt
+report_scaffold.md
+ml_script.txt
+demo_video_script.md
+slide_coverage.md
+INTERVIEW_NOTES.md
+_commit_runbook.md
+inspect_data.py
+validation_data.csv
+.git
