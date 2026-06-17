@@ -34,3 +34,5 @@ INTERVIEW_NOTES.md
 _commit_runbook.md
 *.local.md
 notes/
+
+.vercel
