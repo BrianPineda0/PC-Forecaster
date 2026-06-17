@@ -19,7 +19,12 @@
 </form>
 
 {% if q and not results %}
-  <div class="empty-state">No matches for &ldquo;{{ q }}&rdquo;. Try a shorter or different query.</div>
+  <div class="empty-rich">
+    <div class="empty-ill"><svg viewBox="0 0 24 24" width="24" height="24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm5 11l5 5"/></svg></div>
+    <h3>No matches for &ldquo;{{ q }}&rdquo;</h3>
+    <p>Try a shorter or different query &mdash; search by model, brand, chipset, or capacity (e.g. &ldquo;rtx 5070&rdquo;, &ldquo;ddr5 6000&rdquo;, &ldquo;2tb&rdquo;).</p>
+    <div class="empty-cta"><a class="btn" href="{{ url_for('deals') }}">Browse this month&rsquo;s picks</a></div>
+  </div>
 {% endif %}
 
 {% if results %}
@@ -41,6 +46,11 @@
 {% endif %}
 
 {% if not q %}
-  <div class="empty-state">Type a query above to begin.</div>
+  <div class="empty-rich">
+    <div class="empty-ill"><svg viewBox="0 0 24 24" width="24" height="24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm5 11l5 5"/></svg></div>
+    <h3>Search 6,078 components</h3>
+    <p>Type a model, brand, chipset, or capacity above &mdash; or press <span class="kbd-inline">&#8984;K</span> anywhere to search from the command palette.</p>
+    <div class="empty-cta"><a class="btn" href="{{ url_for('deals') }}">This month&rsquo;s picks</a><a class="btn ghost" href="{{ url_for('build') }}">Plan a build</a></div>
+  </div>
 {% endif %}
 {% endblock %}

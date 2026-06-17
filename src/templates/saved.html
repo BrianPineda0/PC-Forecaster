@@ -8,8 +8,11 @@
 <p class="page-lede">Tap the heart on any component or deal card to add it here. Saved locally to your browser &mdash; no account, no sync.</p>
 
 <div id="savedRoot">
-  <div class="empty-state" id="savedEmpty" style="display:none">
-    Nothing saved yet. Find something on <a href="{{ url_for('deals') }}">This Month</a> or <a href="{{ url_for('components') }}">Components</a> and tap the heart.
+  <div class="empty-rich" id="savedEmpty" style="display:none">
+    <div class="empty-ill"><svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 21s-7-4.35-7-10a4.5 4.5 0 0 1 8.5-2A4.5 4.5 0 0 1 22 11c0 5.65-10 10-10 10z"/></svg></div>
+    <h3>Nothing saved yet</h3>
+    <p>Tap the heart on any component or deal card to keep it here &mdash; saved locally to your browser, no account needed.</p>
+    <div class="empty-cta"><a class="btn" href="{{ url_for('deals') }}">This Month</a><a class="btn ghost" href="{{ url_for('components') }}">Browse components</a></div>
   </div>
   <div class="deals-grid" id="savedGrid"></div>
   <div class="build-actions" id="savedActions" style="display:none">
